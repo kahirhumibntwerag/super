@@ -1,0 +1,24 @@
+# Configuration for the Generator model
+
+RRDB:
+  model:
+    in_channels: 1            # Number of input channels (e.g., 1 for grayscale solar images)
+    initial_channel: 64        # Initial number of channels for the first convolution layer
+    num_rrdb_blocks: 4         # Number of RRDB blocks to be used
+    upscale_factor: 4          # Upscaling factor for super-resolution
+  
+  training:
+    batch_size: 4
+    epochs: 30
+    lr: 0.001
+    accumulate_gradient: False
+    save_checkpoint_in: 'SR\RRDB\checkpoints'
+    checkpoint: 'SR\RRDB\checkpoints\checkpoint5.pth'
+    save_frequency: 5
+
+
+data:
+  wavelength: '171A'
+  year: 2015
+
+
