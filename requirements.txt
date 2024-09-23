@@ -16,3 +16,4 @@ sunpy
 pip
 argparse
 pyyaml
+wandb

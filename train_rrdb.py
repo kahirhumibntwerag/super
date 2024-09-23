@@ -139,7 +139,7 @@ if __name__ == "__main__":
     # Parse the command-line arguments
     args = parser.parse_args()
     # Load the configuration from the YAML file
-    config = load_config(r'SR\config\config.yml')
+    config = load_config(r'super\config\config.yml')
 
     # Loading and initializing variables
 
