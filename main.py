@@ -25,6 +25,7 @@ from torch.distributed import init_process_group, destroy_process_group
 def setup_ddp(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
+    torch.cuda.set_device(rank)
     init_process_group(backend='nccl', rank=rank, world_size=world_size)
 
 def load_config(config_path):
@@ -34,14 +35,14 @@ def load_config(config_path):
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
 
-def train(model, dataloader, criterion, optimizer, device):
+def train(model, dataloader, criterion, optimizer, rank):
     """a function that train the model for only one step and returns 
        the average loss after the step 
     """
     model.train()
     running_loss = 0.0
     for inputs, targets in tqdm(dataloader, desc="Training"):
-        inputs, targets = inputs.to(device), targets.to(device)
+        inputs, targets = inputs.to(rank), targets.to(rank)
 
         # Zero the parameter gradients
         optimizer.zero_grad()
@@ -59,7 +60,7 @@ def train(model, dataloader, criterion, optimizer, device):
     avg_loss = running_loss / len(dataloader)
     return avg_loss
 
-def validate(model, dataloader, criterion, device):
+def validate(model, dataloader, criterion, rank):
     """a function that validate the model for only one step and returns 
        the average loss after the step 
     """
@@ -67,7 +68,7 @@ def validate(model, dataloader, criterion, device):
     running_loss = 0.0
     with torch.no_grad():
         for inputs, targets in tqdm(dataloader, desc="Validation"):
-            inputs, targets = inputs.to(device), targets.to(device)
+            inputs, targets = inputs.to(rank), targets.to(rank)
 
             # Forward pass
             outputs = model(inputs)
@@ -161,7 +162,8 @@ def main(rank, world_size, config_path):
     cfg = parse_and_merge_config(config_path)
 
     # Initialize the model
-    generator = DDP(build_generator(cfg), device_ids=rank)
+    generator = build_generator(cfg).to(rank)
+    generator = DDP(generator, device_ids=[rank])
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
@@ -177,15 +179,15 @@ def main(rank, world_size, config_path):
     train_losses = []
     validation_losses = []
     for epoch in range(resume_epoch, cfg.RRDB.training.epochs):
-        print(f"Epoch {epoch + 1}/{cfg.RRDB.training.epochs}")
+        print(f"gpu:{rank}: Epoch {epoch + 1}/{cfg.RRDB.training.epochs}")
 
         # Training step
         train_loss = train(generator, train_loader, criterion, optimizer, rank)
-        print(f"Training Loss: {train_loss:.4f}")
+        print(f"gpu:{rank}: Training Loss: {train_loss:.4f}")
 
         # Validation step
         val_loss = validate(generator, val_loader, criterion, rank)
-        print(f"Validation Loss: {val_loss:.4f}")
+        print(f"gpu:{rank}: Validation Loss: {val_loss:.4f}")
 
         # Store losses for future use
         train_losses.append(train_loss)
@@ -193,10 +195,10 @@ def main(rank, world_size, config_path):
 
         # Save checkpoint at defined intervals
         if rank == 0 and epoch % cfg.RRDB.training.save_frequency == 0:
-            checkpoint_path = Path(os.path.abspath(cfg.RRDB.training.save_checkpoint_in + f'/checkpoint_{cfg.data.year}_{cfg.data.wavelength}_{epoch}.pth')).resolve()
+            checkpoint_path = os.path.join(cfg.RRDB.training.save_checkpoint_in , f'/checkpoint_{cfg.data.year}_{cfg.data.wavelength}_{epoch}.pth')
             save_checkpoint(generator, optimizer, epoch, train_loss, checkpoint_path)
-    destroy_process_group()
     print("Training complete.")
+    destroy_process_group()
 
 if __name__ == "__main__":
     # Call the main function with the path to your config file

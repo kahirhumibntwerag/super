@@ -64,6 +64,6 @@ def build_dataloader(config):
     downsample_factor = 1 / config.RRDB.model.upscale_factor
     train_dataset = Dataset(numpy_data=train_data, downsample_factor=downsample_factor, transform=transform)
     val_dataset = Dataset(numpy_data=val_data, downsample_factor=downsample_factor, transform=transform)
-    train_loader = DataLoader(train_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler())
-    val_loader = DataLoader(val_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler())
+    train_loader = DataLoader(train_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler(train_dataset))
+    val_loader = DataLoader(val_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler(val_dataset))
     return train_loader, val_loader

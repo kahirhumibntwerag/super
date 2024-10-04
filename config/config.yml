@@ -14,7 +14,7 @@ RRDB:
     accumulate_gradient: False
     save_checkpoint_in: 'RRDB\checkpoints'
     checkpoint: 'C:\Users\mhesh\OneDrive\Desktop\projee\super\RRDB\checkpoints\checkpoint_2015_171A_4.pth'
-    save_frequency: 1
+    save_frequency: 5
 
 gan:
   generator:
