@@ -17,3 +17,4 @@ pip
 argparse
 pyyaml
 wandb
+omegaconf
