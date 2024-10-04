@@ -38,7 +38,7 @@ class Generator(nn.Module):
     """
     Define the Generator network for solar images with 1 channel
     """
-    def __init__(self, in_channels=1, initial_channel=64,num_rrdb_blocks=4, upscale_factor=8):
+    def __init__(self, in_channels=1, initial_channel=64,num_rrdb_blocks=4, upscale_factor=4, **kwargs):
         super(Generator, self).__init__()
 
         self.initial = nn.Sequential(
@@ -71,3 +71,12 @@ class Generator(nn.Module):
         return self.output(upsampled)
 
 
+
+def build_generator(config):
+    gen_dict = dict(in_channels = config.RRDB.model.in_channels,
+    initial_channel = config.RRDB.model.initial_channel,
+    num_rrdb_blocks = config.RRDB.model.num_rrdb_blocks,
+    upscale_factor = config.RRDB.model.upscale_factor
+    )
+    return Generator(**gen_dict)
+    

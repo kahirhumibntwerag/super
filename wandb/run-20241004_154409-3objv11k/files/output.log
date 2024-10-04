@@ -1,0 +1,14 @@
+Epoch 5/30
+Training: 100%|███████████████████████████████████████████████████████████████████████████████████████████| 10/10 [04:22<00:00, 26.27s/it]
+Training Loss: 3507.8898
+Validation: 100%|███████████████████████████████████████████████████████████████████████████████████████████| 3/3 [00:52<00:00, 17.63s/it]
+Validation Loss: 1983.7161
+Checkpoint saved at C:\Users\mhesh\OneDrive\Desktop\projee\super\RRDB\checkpoints\checkpoint_2015_171A_4.pth
+Epoch 6/30
+Training: 100%|███████████████████████████████████████████████████████████████████████████████████████████| 10/10 [00:35<00:00,  3.59s/it]
+Training Loss: 3317.7516
+Validation: 100%|███████████████████████████████████████████████████████████████████████████████████████████| 3/3 [00:04<00:00,  1.43s/it]
+Validation Loss: 1883.3419
+Checkpoint saved at C:\Users\mhesh\OneDrive\Desktop\projee\super\RRDB\checkpoints\checkpoint_2015_171A_5.pth
+Epoch 7/30
+Training:  10%|█████████▏                                                                                  | 1/10 [00:03<00:32,  3.65s/it]

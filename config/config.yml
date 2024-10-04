@@ -12,9 +12,9 @@ RRDB:
     epochs: 30
     lr: 0.001
     accumulate_gradient: False
-    save_checkpoint_in: 'super\RRDB\checkpoints'
-    checkpoint: 'super\RRDB\checkpoints\checkpoint5.pth'
-    save_frequency: 5
+    save_checkpoint_in: 'RRDB\checkpoints'
+    checkpoint: 'C:\Users\mhesh\OneDrive\Desktop\projee\super\RRDB\checkpoints\checkpoint_2015_171A_4.pth'
+    save_frequency: 1
 
 gan:
   generator:

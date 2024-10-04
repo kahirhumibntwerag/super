@@ -1,0 +1,11 @@
+{"time":"2024-09-25T20:34:47.2822841+02:00","level":"INFO","msg":"using version","core version":"0.18.1"}
+{"time":"2024-09-25T20:34:47.2822841+02:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\wandb\\run-20240925_203447-elgve750\\logs\\debug-core.log"}
+{"time":"2024-09-25T20:34:47.2833895+02:00","level":"INFO","msg":"using version","core version":"0.18.1"}
+{"time":"2024-09-25T20:34:47.2834543+02:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\wandb\\run-20240925_203447-elgve750\\logs\\debug-core.log"}
+{"time":"2024-09-25T20:34:47.290925+02:00","level":"INFO","msg":"created new stream","id":"elgve750"}
+{"time":"2024-09-25T20:34:47.290925+02:00","level":"INFO","msg":"stream: started","id":"elgve750"}
+{"time":"2024-09-25T20:34:47.290925+02:00","level":"INFO","msg":"handler: started","stream_id":{"value":"elgve750"}}
+{"time":"2024-09-25T20:34:47.290925+02:00","level":"INFO","msg":"sender: started","stream_id":{"value":"elgve750"}}
+{"time":"2024-09-25T20:34:47.2911455+02:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"elgve750"}}
+{"time":"2024-09-25T20:34:47.8537489+02:00","level":"INFO","msg":"wandb-core","!BADKEY":null}
+{"time":"2024-09-25T20:34:47.8559682+02:00","level":"INFO","msg":"Starting system monitor"}

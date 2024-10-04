@@ -1,0 +1,46 @@
+_content:
+    value:
+        model: '{''in_channels'': 1, ''initial_channel'': 64, ''num_rrdb_blocks'': 4, ''upscale_factor'': 4}'
+        training: '{''batch_size'': 4, ''epochs'': 30, ''lr'': 0.001, ''accumulate_gradient'': False, ''save_checkpoint_in'': ''super\\RRDB\\checkpoints'', ''checkpoint'': ''C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\RRDB\\checkpoints\\checkpoint_2015_171A_4.pth'', ''save_frequency'': 1}'
+_flags_cache:
+    value:
+        struct: null
+_metadata:
+    value:
+        element_type: typing.Any
+        flags_root: false
+        key: RRDB
+        key_type: typing.Any
+        object_type: builtins.dict
+        optional: true
+        ref_type: typing.Any
+_parent:
+    value: '{''RRDB'': {''model'': {''in_channels'': 1, ''initial_channel'': 64, ''num_rrdb_blocks'': 4, ''upscale_factor'': 4}, ''training'': {''batch_size'': 4, ''epochs'': 30, ''lr'': 0.001, ''accumulate_gradient'': False, ''save_checkpoint_in'': ''super\\RRDB\\checkpoints'', ''checkpoint'': ''C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\RRDB\\checkpoints\\checkpoint_2015_171A_4.pth'', ''save_frequency'': 1}}, ''gan'': {''generator'': {''in_channels'': 1, ''initial_channel'': 64, ''num_rrdb_blocks'': 4, ''upscale_factor'': 4, ''lr'': 0.0001}, ''discriminator'': {''num_layers'': 2, ''channels'': 16, ''lr'': 1e-05}, ''training'': {''batch_size'': 1, ''epochs'': 30, ''accumulate_gradient'': False, ''save_checkpoint_in'': ''super\\GAN\\checkpoints'', ''checkpoint'': ''super\\GAN\\checkpoints\\'', ''save_frequency'': 5}}, ''data'': {''wavelength'': ''171A'', ''year'': 2015}}'
+_wandb:
+    value:
+        cli_version: 0.18.1
+        m: []
+        python_version: 3.12.7
+        t:
+            "1":
+                - 1
+                - 41
+                - 54
+                - 55
+            "2":
+                - 1
+                - 41
+                - 54
+                - 55
+            "3":
+                - 1
+                - 16
+                - 23
+                - 55
+            "4": 3.12.7
+            "5": 0.18.1
+            "8":
+                - 3
+                - 5
+            "12": 0.18.1
+            "13": windows-amd64

@@ -1,4 +1,4 @@
-from data.LoadData import load_single_aws_zarr, s3_connection, AWS_ZARR_ROOT
+from data.LoadData import load_single_aws_zarr, s3_connection, AWS_ZARR_ROOT, build_dataloader
 from data.Dataset import Dataset
 from tqdm import tqdm
 import dask.array as da
@@ -9,15 +9,19 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch
 import torch.nn as nn
-from RRDB.src.RRDB import Generator
+from RRDB.src.RRDB import Generator, build_generator
 import matplotlib.pyplot as plt
 import argparse
 import wandb  
-
+from omegaconf import OmegaConf
+import os
+from pathlib import Path
 
 
 def load_config(config_path):
     """loading the config file"""
+    abs_path = os.path.abspath(config_path)
+    config_path = Path(abs_path).resolve()
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
 
@@ -106,9 +110,11 @@ def load_checkpoint(model, optimizer, custom_checkpoint_path):
     if not custom_checkpoint_path or not os.path.isfile(custom_checkpoint_path):
         print(f"Invalid checkpoint path: {custom_checkpoint_path}")
         return 0, None  # Return 0 epoch if the path is invalid
-
+    
+    abs_path = os.path.abspath(custom_checkpoint_path)
+    config_path = Path(abs_path).resolve()
     # Load the checkpoint
-    checkpoint = torch.load(custom_checkpoint_path)
+    checkpoint = torch.load(config_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch = checkpoint['epoch']
@@ -119,111 +125,58 @@ def load_checkpoint(model, optimizer, custom_checkpoint_path):
     return epoch, loss
 
 
-
-
-
-if __name__ == "__main__":
-    # Training the RRDB model from a config file
+def parse_and_merge_config(config_path):
+    # Create a parser to accept arguments from the command line
     parser = argparse.ArgumentParser(description="Train the RRDB model with optional config overrides.")
-
-    # Add arguments to override config values
-    parser.add_argument("--batch_size", type=int, help="Override batch size from config")
-    parser.add_argument("--epochs", type=int, help="Override epochs from config")
-    parser.add_argument("--lr", type=float, help="Override learning rate from config")
-    parser.add_argument("--checkpoint", type=str, help="Override checkpoint path from config")
-    parser.add_argument("--save_checkpoint_in", type=str, help="Override checkpoint save directory from config")
-    parser.add_argument("--save_frequency", type=int, help="Override save frequency from config")
-    parser.add_argument("--year", type=int, help="Override year from config")
-    parser.add_argument("--wavelength", type=int, help="Override wavelength from config")
     
-    # Parse the command-line arguments
+    # Parse known arguments and handle unknown arguments separately
+    parser.add_argument('--opt', nargs='+', default=None)
     args = parser.parse_args()
+    
     # Load the configuration from the YAML file
-    config = load_config(r'super\config\config.yml')
-
-    # Loading and initializing variables
-
-    # Model variables initialization
-    in_channels = config['RRDB']['model']['in_channels']
-    initial_channel = config['RRDB']['model']['initial_channel']
-    num_rrdb_blocks = config['RRDB']['model']['num_rrdb_blocks']
-    upscale_factor = config['RRDB']['model']['upscale_factor']
+    cfg = load_config(config_path)
     
-    # Override training-related variables if command-line arguments are provided
-    batch_size = args.batch_size if args.batch_size is not None else config['RRDB']['training']['batch_size']
-    epochs = args.epochs if args.epochs is not None else config['RRDB']['training']['epochs']
-    lr = args.lr if args.lr is not None else config['RRDB']['training']['lr']
-    checkpoint = args.checkpoint if args.checkpoint is not None else config['RRDB']['training']['checkpoint']
-    save_checkpoint_in = args.save_checkpoint_in if args.save_checkpoint_in is not None else config['RRDB']['training']['save_checkpoint_in']
-    save_frequency = args.save_frequency if args.save_frequency is not None else config['RRDB']['training']['save_frequency']
+    # Convert the loaded YAML config into an OmegaConf object
+    cfg = OmegaConf.create(cfg)
+    
+    # Merge the loaded configuration with any command-line options
+    config = OmegaConf.merge(cfg, OmegaConf.from_cli(args.opt))
+    
+    # Return the final configuration
+    return config
 
-    # Override data-related variables if command-line arguments are provided
-    year = args.year if args.year is not None else config['data']['year']
-    wavelength = args.wavelength if args.wavelength is not None else config['data']['wavelength']
-    
-    # Defining the device 
-    device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
-    
-    # Initializing the model
-    generator = Generator(
-        in_channels=in_channels,
-        initial_channel=initial_channel,
-        num_rrdb_blocks=num_rrdb_blocks,
-        upscale_factor=upscale_factor
-    ).to(device)
+
+def main(config_path):
+    # Parse and merge configuration
+    cfg = parse_and_merge_config(config_path)
+
+    # Define the device (GPU or CPU)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Initialize the model
+    generator = build_generator(cfg).to(device)
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
+    optimizer = optim.Adam(generator.parameters(), lr=cfg.RRDB.training.lr)
 
-    # Defining the optimizer
-    optimizer = optim.Adam(generator.parameters(), lr=lr)
+    # Load model checkpoint
+    resume_epoch, loss = load_checkpoint(generator, optimizer, cfg.RRDB.training.checkpoint)
 
-    # Loading the model from a checkpoint
-    resume_epoch, loss = load_checkpoint(generator, optimizer, checkpoint)
+    # Build dataloaders for training and validation
+    train_loader, val_loader = build_dataloader(cfg)
 
-    # Load the data from aws s3 
-    data = load_single_aws_zarr(
-        path_to_zarr=AWS_ZARR_ROOT + str(year),
-        wavelength=wavelength
-    )
+    # Initialize Weights & Biases (wandb)
+    wandb.init(project="your_project_name", config=cfg.RRDB)
 
-    # Splitting the data into training and validation sets
-    train_data = data[960:1000]
-    val_data = data[:10]
-    
-    # Composing the transformation to be applied to the data
-    transform = transforms.Compose([transforms.ToTensor()])
-    
-    # Initializing the validation and training dataset and dataloader modules from PyTorch 
-    downsample_factor = 1 / upscale_factor
-    train_dataset = Dataset(numpy_data=train_data, downsample_factor=downsample_factor, transform=transform)
-    val_dataset = Dataset(numpy_data=val_data, downsample_factor=downsample_factor, transform=transform)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size)
-    
-    # Initialize wandb
-    wandb.init(project="your_project_name", config={
-        "batch_size": batch_size,
-        "epochs": epochs,
-        "lr": lr,
-        "checkpoint": checkpoint,
-        "save_checkpoint_in": save_checkpoint_in,
-        "save_frequency": save_frequency,
-        "year": year,
-        "wavelength": wavelength,
-        "in_channels": in_channels,
-        "initial_channel": initial_channel,
-        "num_rrdb_blocks": num_rrdb_blocks,
-        "upscale_factor": upscale_factor,
-    })
-    # Optionally, if you want to track gradients and model parameters
+    # Optionally, track gradients and model parameters
     wandb.watch(generator, log='all', log_freq=5)
 
     # Training and validation loop
     train_losses = []
     validation_losses = []
-    for epoch in range(resume_epoch, epochs):
-        print(f"Epoch {epoch+1}/{epochs}")
+    for epoch in range(resume_epoch, cfg.RRDB.training.epochs):
+        print(f"Epoch {epoch + 1}/{cfg.RRDB.training.epochs}")
 
         # Training step
         train_loss = train(generator, train_loader, criterion, optimizer, device)
@@ -232,8 +185,8 @@ if __name__ == "__main__":
         # Validation step
         val_loss = validate(generator, val_loader, criterion, device)
         print(f"Validation Loss: {val_loss:.4f}")
-        
-        # Appending validation and training loss to a list to plot them later
+
+        # Store losses for future use
         train_losses.append(train_loss)
         validation_losses.append(val_loss)
 
@@ -241,21 +194,26 @@ if __name__ == "__main__":
         wandb.log({
             "train_loss": train_loss,
             "val_loss": val_loss,
-            "epoch": epoch+1
+            "epoch": epoch
         })
 
-        # Saving the checkpoint 
-        if (epoch+1) % save_frequency == 0:
-            checkpoint_path = save_checkpoint_in + f'/checkpoint_{year}_{wavelength}_{epoch}.pth'
+        # Save checkpoint at defined intervals
+        if epoch % cfg.RRDB.training.save_frequency == 0:
+            checkpoint_path = Path(os.path.abspath(cfg.RRDB.training.save_checkpoint_in + f'/checkpoint_{cfg.data.year}_{cfg.data.wavelength}_{epoch}.pth')).resolve()
             save_checkpoint(generator, optimizer, epoch, train_loss, checkpoint_path)
-            
-        # Log the checkpoint as an artifact
+
+            # Log checkpoint as an artifact
             artifact = wandb.Artifact(
-            name=f'checkpoint_{year}_{wavelength}_{epoch}', 
-            type='model'
-        )
+                name=f'checkpoint_{cfg.data.year}_{cfg.data.wavelength}_{epoch}', 
+                type='model'
+            )
             artifact.add_file(checkpoint_path)
             wandb.log_artifact(artifact)
 
-    # Finish wandb run
+    # End wandb session
     wandb.finish()
+
+if __name__ == "__main__":
+    # Call the main function with the path to your config file
+    main('config/config.yml')
+

@@ -1,0 +1,36 @@
+{
+  "os": "Windows-11-10.0.22631-SP0",
+  "python": "3.12.6",
+  "startedAt": "2024-09-25T18:32:26.848194Z",
+  "args": [
+    "--opt",
+    "RRDB.training.epochs=50"
+  ],
+  "program": "C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\train_rrdb.py",
+  "codePath": "train_rrdb.py",
+  "git": {
+    "remote": "https://github.com/kahirhumibntwerag/super.git",
+    "commit": "16cebb5db917b5458ddf45b2b27ff238ab04b210"
+  },
+  "email": "mhesham253@gmail.com",
+  "root": "C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super",
+  "host": "BigBoss",
+  "username": "mhesh",
+  "executable": "C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\venv\\Scripts\\python.exe",
+  "codePathLocal": "train_rrdb.py",
+  "cpu_count": 8,
+  "cpu_count_logical": 12,
+  "disk": {
+    "/": {
+      "total": "509722226688",
+      "used": "340841623552"
+    }
+  },
+  "memory": {
+    "total": "16873545728"
+  },
+  "cpu": {
+    "count": 8,
+    "countLogical": 12
+  }
+}

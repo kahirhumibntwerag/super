@@ -3,7 +3,9 @@ import s3fs
 import zarr
 from typing import Union
 import dask.array as da
-
+from torchvision import transforms
+from data.Dataset import Dataset
+from torch.utils.data import DataLoader
 
 AWS_ZARR_ROOT = (
     "s3://gov-nasa-hdrl-data1/contrib/fdl-sdoml/fdl-sdoml-v2/sdomlv2.zarr/"
@@ -42,4 +44,26 @@ def load_single_aws_zarr(
 
     return data
 
+from torch.utils.data.distributed import DistributedSampler
 
+def build_dataloader(config):
+        # Load the data from aws s3 
+    data = load_single_aws_zarr(
+        path_to_zarr=AWS_ZARR_ROOT + str(config.data.year),
+        wavelength=config.data.wavelength
+    )
+
+    # Splitting the data into training and validation sets
+    train_data = data[960:1000]
+    val_data = data[:10]
+    
+    # Composing the transformation to be applied to the data
+    transform = transforms.Compose([transforms.ToTensor()])
+    
+    # Initializing the validation and training dataset and dataloader modules from PyTorch 
+    downsample_factor = 1 / config.RRDB.model.upscale_factor
+    train_dataset = Dataset(numpy_data=train_data, downsample_factor=downsample_factor, transform=transform)
+    val_dataset = Dataset(numpy_data=val_data, downsample_factor=downsample_factor, transform=transform)
+    train_loader = DataLoader(train_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler())
+    val_loader = DataLoader(val_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler())
+    return train_loader, val_loader

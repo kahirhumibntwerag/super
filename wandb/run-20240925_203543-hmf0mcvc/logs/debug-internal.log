@@ -1,0 +1,11 @@
+{"time":"2024-09-25T20:35:43.6053607+02:00","level":"INFO","msg":"using version","core version":"0.18.1"}
+{"time":"2024-09-25T20:35:43.6053607+02:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\wandb\\run-20240925_203543-hmf0mcvc\\logs\\debug-core.log"}
+{"time":"2024-09-25T20:35:43.6083204+02:00","level":"INFO","msg":"using version","core version":"0.18.1"}
+{"time":"2024-09-25T20:35:43.6083204+02:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\wandb\\run-20240925_203543-hmf0mcvc\\logs\\debug-core.log"}
+{"time":"2024-09-25T20:35:43.6308098+02:00","level":"INFO","msg":"created new stream","id":"hmf0mcvc"}
+{"time":"2024-09-25T20:35:43.6308098+02:00","level":"INFO","msg":"stream: started","id":"hmf0mcvc"}
+{"time":"2024-09-25T20:35:43.6313168+02:00","level":"INFO","msg":"handler: started","stream_id":{"value":"hmf0mcvc"}}
+{"time":"2024-09-25T20:35:43.6313168+02:00","level":"INFO","msg":"sender: started","stream_id":{"value":"hmf0mcvc"}}
+{"time":"2024-09-25T20:35:43.6308098+02:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"hmf0mcvc"}}
+{"time":"2024-09-25T20:35:44.1814106+02:00","level":"INFO","msg":"wandb-core","!BADKEY":null}
+{"time":"2024-09-25T20:35:44.1862449+02:00","level":"INFO","msg":"Starting system monitor"}

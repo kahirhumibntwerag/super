@@ -1,0 +1,11 @@
+{"time":"2024-09-25T20:31:52.9868637+02:00","level":"INFO","msg":"using version","core version":"0.18.1"}
+{"time":"2024-09-25T20:31:52.9874882+02:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\wandb\\run-20240925_203152-h6fgvbu0\\logs\\debug-core.log"}
+{"time":"2024-09-25T20:31:52.9888879+02:00","level":"INFO","msg":"using version","core version":"0.18.1"}
+{"time":"2024-09-25T20:31:52.9888879+02:00","level":"INFO","msg":"created symlink","path":"C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super\\wandb\\run-20240925_203152-h6fgvbu0\\logs\\debug-core.log"}
+{"time":"2024-09-25T20:31:52.9989961+02:00","level":"INFO","msg":"created new stream","id":"h6fgvbu0"}
+{"time":"2024-09-25T20:31:52.9989961+02:00","level":"INFO","msg":"stream: started","id":"h6fgvbu0"}
+{"time":"2024-09-25T20:31:52.9989961+02:00","level":"INFO","msg":"handler: started","stream_id":{"value":"h6fgvbu0"}}
+{"time":"2024-09-25T20:31:52.9989961+02:00","level":"INFO","msg":"writer: Do: started","stream_id":{"value":"h6fgvbu0"}}
+{"time":"2024-09-25T20:31:52.9989961+02:00","level":"INFO","msg":"sender: started","stream_id":{"value":"h6fgvbu0"}}
+{"time":"2024-09-25T20:31:53.6034819+02:00","level":"INFO","msg":"wandb-core","!BADKEY":null}
+{"time":"2024-09-25T20:31:53.608539+02:00","level":"INFO","msg":"Starting system monitor"}
