@@ -23,6 +23,7 @@ from torch.distributed import init_process_group, destroy_process_group
 
 
 def setup_ddp():
+    torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
     init_process_group(backend='nccl')
 
 def load_config(config_path):
@@ -154,14 +155,17 @@ def parse_and_merge_config(config_path):
 
 
 def main(config_path):
-    rank = int(os.environ['LOCAL_RANK'])
-    setup_ddp()
     # Parse and merge configuration
     cfg = parse_and_merge_config(config_path)
-
-    # Initialize the model
-    generator = build_generator(cfg).to(rank)
-    generator = DDP(generator, device_ids=[rank])
+    
+    if cfg.RRDB.training.starategy == 'ddp':
+        setup_ddp()
+        rank = int(os.environ['LOCAL_RANK'])
+        generator = build_generator(cfg).to(rank)
+        generator = DDP(generator, device_ids=[rank])
+    else:
+        rank = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        generator = build_generator(cfg).to(rank)
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
@@ -193,10 +197,10 @@ def main(config_path):
 
         # Save checkpoint at defined intervals
         if rank == 0 and epoch % cfg.RRDB.training.save_frequency == 0:
-            checkpoint_path = os.path.join(cfg.RRDB.training.save_checkpoint_in , f'/checkpoint_{cfg.data.year}_{cfg.data.wavelength}_{epoch}.pth')
-            save_snapshot(generator, optimizer, epoch, train_loss, checkpoint_path)
+            save_snapshot(generator, optimizer, epoch, train_loss)
     print("Training complete.")
-    destroy_process_group()
+    if cfg.RRDB.training.starategy == 'ddp':
+        destroy_process_group()
 
 if __name__ == "__main__":
     # Call the main function with the path to your config file

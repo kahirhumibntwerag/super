@@ -4,7 +4,7 @@ import zarr
 from typing import Union
 import dask.array as da
 from torchvision import transforms
-from data.Dataset import Dataset
+from .Dataset import Dataset
 from torch.utils.data import DataLoader
 
 AWS_ZARR_ROOT = (
@@ -67,3 +67,8 @@ def build_dataloader(config):
     train_loader = DataLoader(train_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler(train_dataset))
     val_loader = DataLoader(val_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler(val_dataset))
     return train_loader, val_loader
+
+
+if __name__ == '__main__':
+    data = load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(2015), wavelength='171A')
+    print(data[0].compute().shape)

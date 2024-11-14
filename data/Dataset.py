@@ -32,7 +32,7 @@ class Dataset(Dataset):
 
         
         if self.transform:
-            hr = self.transform(hr).float().view(1, 1, 512, 512)
+            hr = self.transform(hr).float().view(-1, 1, 512, 512)
             lr = F.interpolate(hr, size=(int(hight*self.downsample_factor), int(width*self.downsample_factor)), mode='bilinear', align_corners=False)
             
         return lr.squeeze(0), hr.squeeze(0)

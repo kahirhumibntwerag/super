@@ -4,6 +4,20 @@ import torch
 
 import numpy as np
 
+class Arrow:
+    def __init__(self, tensor):
+        self.tensor = tensor
+    
+class Concat:
+    def __init__(self):
+        self.arrows = []
+    def in_arrow(self, arrow):
+        self.arrows.append(arrow)
+    def concate(self):
+        return torch.cat(self.arrows, dim=0)
+
+
+
 
 class ResidualBlock(nn.Module):
     """

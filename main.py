@@ -100,7 +100,6 @@ def save_checkpoint(model, optimizer, epoch, loss, file_path='checkpoint.pth'):
     print(f"Checkpoint saved at {file_path}")
 
 
-
 def load_checkpoint(model, optimizer, custom_checkpoint_path):
     """
     Load a checkpoint from a specified path.
