@@ -65,7 +65,7 @@ class DDPM(nn.Module):
         self.device = device
     
     def training_step(self, x, c=None):
-        t = torch.randint(1000, size=(x.shape[0],))
+        t = torch.randint(1000, size=(x.shape[0],), device=x.device)
         xt, noise = self.diffusion.add_noise(x, t)
         predicted_noise = self.model(xt, t)
         return self.loss(noise, predicted_noise)
@@ -81,7 +81,7 @@ class DDPM(nn.Module):
     def training_batches(self):
         self.model.train()
         training_loss = 0.0
-        for lr, _ in self.datamodule.train_loader():
+        for lr, _ in tqdm(self.datamodule.train_loader()):
             lr = lr.to(self.device)            
             training_loss += self.training_step_(lr)
         
@@ -92,17 +92,16 @@ class DDPM(nn.Module):
             self.model.train()
             loss = self.training_batches()
             print(f'Epoch {epoch} | training loss {loss}')
-            if self.datamodule.val_loader():
-                print(f'Epoch {epoch} | training loss {self.validation_batches}')
+            print(f'Epoch {epoch} | validation loss {self.validation_batches()}')
 
 
     @torch.no_grad
     def validation_batches(self):
         self.model.eval()
         validation_loss = 0.0
-        for lr, hr in self.datamodule.val_loader():
-            lr, _ = lr.to(self.device)
-            t = torch.randint(1000, size=hr.shape[0])
+        for lr, hr in tqdm(self.datamodule.val_loader()):
+            lr = lr.to(self.device)
+            t = torch.randint(1000, size=(hr.shape[0],), device=lr.device)
             
             validation_loss += self.validation_step(lr, t)
     
@@ -111,7 +110,7 @@ class DDPM(nn.Module):
     @torch.no_grad
     def validation_step(self, x, t, c=None):
         xt, noise = self.diffusion.add_noise(x, t)
-        predicted_noise = self.model(xt)
+        predicted_noise = self.model(xt, t)
         return self.loss(noise, predicted_noise).item()
 
     def log(self):

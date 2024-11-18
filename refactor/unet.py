@@ -171,6 +171,7 @@ class ResBlock(XTBlock):
         super().__init__()
         self.inconv = InConvBlock(in_channels, in_channels)
         self.injector = TimeInjector(time_embedding_dim, in_channels)
+    
     def forward(self, x, t):
         h = self.inconv(x)
         h = self.injector(h, t)
@@ -210,7 +211,7 @@ class Connection:
 
 class Router(nn.Sequential):
     def __init__(self, connections, *args):
-        super(Router, self).__init__(*args)
+        super().__init__(*args)
         
         self.connections = connections
 
@@ -433,10 +434,10 @@ class ResChain(XTBlock):
         return x
     
 class Unet(nn.Module):
-    def __init__(self, channels=[64, 128, 256, 512], num_resblocks=5):
+    def __init__(self, in_channels=3, channels=[64, 128, 256, 512], num_resblocks=5):
         super().__init__()        
-        self.in_proj = nn.Conv2d(1, channels[0], 3, padding=1)
-        self.out_proj = nn.Conv2d(channels[0], 1, 3, padding=1)
+        self.in_proj = nn.Conv2d(in_channels, channels[0], 3, padding=1)
+        self.out_proj = nn.Conv2d(channels[0], in_channels, 3, padding=1)
 
         self.time_embedder = TimeEmbedder(channels[0], time_embedding_dim=128)
         
@@ -461,16 +462,11 @@ class Unet(nn.Module):
         connections = connection_finder(unet, 'ResChain')
         self.unet = Router(connections, *unet)
 
-
-
-
     def forward(self, x, t):
         t = self.time_embedder(t)
         x = self.in_proj(x)
         x = self.unet(x, t)
         return self.out_proj(x) 
-
-
 
 
 
