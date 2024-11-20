@@ -3,7 +3,7 @@ import os
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-from .vae import VAE
+from .test import VAE
 from .discriminator import Discriminator
 from .lpips  import VAELOSS
 from torch.utils.data import DataLoader
@@ -202,10 +202,10 @@ def load_config(config_path):
 
 
 if __name__ == '__main__':
-    config = load_config(r'config\configG.yml')
+    config = load_config(os.path.join('config', 'configG'))
     transform = transforms.Compose([transforms.ToTensor()])
     datamodule = DataModule(**config['data'], transform=transform )
-    vae = VAE(**config['vae_gan']['vae'])
+    vae = VAE(channel_in=1, ch=64, blocks=(1, 2), latent_channels=3, num_res_blocks=8)
     #gan = VAEGAN(**config['vae_gan'])
     trainer = Trainer(**config['trainer'])
     trainer.fit(vae, datamodule)

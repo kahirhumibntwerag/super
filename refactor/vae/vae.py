@@ -79,7 +79,7 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, in_channels=3, latent_channels=3, channels=[64, 128, 256, 512], num_resblocks=5, lr=1e-4):
+    def __init__(self, in_channels=3, latent_channels=3, channels=[64, 128], num_resblocks=5, lr=1e-4):
         super().__init__()
         self.lr = lr
         self.encoder = Encoder(in_channels, latent_channels, channels, num_resblocks)
@@ -119,8 +119,8 @@ class VAE(nn.Module):
         self.logs[name].append(to_log.detach().item())
 
     def kl_loss(self, mean, logvar):
-        kl_div = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp(), )
-        return torch.mean(kl_div)
+        kl_div = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
+        return kl_div
 
        
     def flops_and_parameters(self, input_shape):
@@ -135,4 +135,4 @@ if __name__ == '__main__':
     with torch.no_grad():
         vae = VAE(in_channels=1, num_resblocks=1)
         #z, mean, logvar = vae.encoder.encode(x)
-        print(vae.training_step((x, lr), 0).shape)
+        print(vae(x)[1].shape)
