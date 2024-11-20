@@ -3,7 +3,7 @@ import os
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-from .test import VAE
+from .vae import VAE
 from .discriminator import Discriminator
 from .lpips  import VAELOSS
 from torch.utils.data import DataLoader
@@ -62,7 +62,9 @@ class Trainer:
         self.epoch = 0
     
     def fit(self, model, datamodule):
+        wandb.init(project="your_project_name")
         self.model = model.to(self.device)
+        wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
         self.val_loader = datamodule.val_loader()
@@ -72,6 +74,7 @@ class Trainer:
             self.validation_loop()
             self.print_losses()
             self.save_checkpoint()
+        wandb.finish()
 
     def fit_(self):
         self.model.train()
@@ -124,6 +127,7 @@ class Trainer:
     def print_losses(self):
         for loss_name, loss in self.model.logs.items():
             print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
+            wandb.log({loss_name:sum(loss)/len(loss)})
             self.model.logs[loss_name] = []
     
     @torch.no_grad()
@@ -205,7 +209,7 @@ if __name__ == '__main__':
     config = load_config(os.path.join('config', 'configG'))
     transform = transforms.Compose([transforms.ToTensor()])
     datamodule = DataModule(**config['data'], transform=transform )
-    vae = VAE(channel_in=1, ch=64, blocks=(1, 2), latent_channels=3, num_res_blocks=8)
+    vae = VAE(**config['vae_gan']['vae'])
     #gan = VAEGAN(**config['vae_gan'])
     trainer = Trainer(**config['trainer'])
     trainer.fit(vae, datamodule)
