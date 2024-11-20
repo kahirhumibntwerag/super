@@ -167,27 +167,14 @@ def save_checkpoint(generator, discriminator, gen_optimizer, disc_optimizer,epoc
 
 
 def load_checkpoint(generator, discriminator, gen_optimizer, disc_optimizer,custom_checkpoint_path):
-    """
-    Load a checkpoint from a specified path.
 
-    Args:
-        model (torch.nn.Module): The model to load the state into.
-        optimizer (torch.optim.Optimizer): The optimizer to load the state into.
-        custom_checkpoint_path (str): Path to the specific checkpoint file.
-
-    Returns:
-        int: The epoch to resume from, or 0 if no checkpoint is found.
-        float: The loss value at the checkpoint, or None if no checkpoint is found.
-    """
     import os
 
-    # Check if the custom checkpoint path is valid
-    if not custom_checkpoint_path or not os.path.isfile(custom_checkpoint_path):
-        print(f"Invalid checkpoint path: {custom_checkpoint_path}")
-        return 0, None  # Return 0 epoch if the path is invalid
+    if not checkpoint_path or not os.path.isfile(checkpoint_path):
+        print(f"Invalid checkpoint path: {checkpoint_path}")
+        return 0, None  
 
-    # Load the checkpoint
-    checkpoint = torch.load(custom_checkpoint_path)
+    checkpoint = torch.load(checkpoint_path)
     generator.load_state_dict(checkpoint['generator_state_dict'])
     discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
     gen_optimizer.load_state_dict(checkpoint['gen_optimizer_state_dict'])

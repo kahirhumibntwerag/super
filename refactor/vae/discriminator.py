@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self, input_channels=3, channel_list=[64, 128, 256], lr=1e-6):
+    def __init__(self, in_channels=3, channel_list=[64, 128, 256], lr=1e-6):
 
         super().__init__()
         self.lr = lr
@@ -10,7 +10,7 @@ class Discriminator(nn.Module):
         padding = 1
         
         layers = [
-            nn.Conv2d(input_channels, channel_list[0], kernel_size=kernel_size, stride=2, padding=padding),
+            nn.Conv2d(in_channels, channel_list[0], kernel_size=kernel_size, stride=2, padding=padding),
             nn.LeakyReLU(0.2, inplace=True)
         ]
         

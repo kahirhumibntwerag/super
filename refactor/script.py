@@ -1,5 +1,5 @@
-from unet import Unet
-from super.refactor.vae.vae import VAE
+from .unet import Unet
+from refactor.vae.vae import VAE
 import torch
 import torch.nn as nn
 

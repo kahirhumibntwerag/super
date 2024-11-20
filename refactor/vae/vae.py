@@ -1,14 +1,7 @@
-import sys
-import os
-
-module_path = os.path.abspath(os.path.join('..', r'C:\Users\mhesh\OneDrive\Desktop\projee\super\refactor'))
-if module_path not in sys.path:
-    sys.path.append(module_path)
-
 
 import torch 
 import torch.nn as nn
-from unet import InConvBlock, OutConvBlock, Downsample, Upsample, ChannelChanger
+from refactor.unet import InConvBlock, OutConvBlock, Downsample, Upsample, ChannelChanger
 
 
 
@@ -91,10 +84,48 @@ class VAE(nn.Module):
         self.lr = lr
         self.encoder = Encoder(in_channels, latent_channels, channels, num_resblocks)
         self.decoder = Decoder(in_channels, latent_channels, channels, num_resblocks)
+        self.logs = {}
     def forward(self, x):
         z, mean, logvar = self.encoder.encode(x)
         x = self.decoder.decode(z)
         return x, mean, logvar
+    
+    def training_step(self, data, opt_idx):
+        if opt_idx == 0:
+            _, hr = data
+            hr = hr/hr.max()
+            decoded, _, _ = self(hr)
+            loss = nn.functional.mse_loss(hr, decoded)
+            self.log('l2 training loss', loss)
+            return loss
+    
+    def validation_step(self, data):
+        _, hr = data
+        hr = hr/hr.max()
+        decoded, _, _ = self(hr)
+        self.log_image(decoded)
+        loss = nn.functional.mse_loss(hr, decoded)
+        self.log('l2 validation loss', loss)
+        return loss
+
+    
+    def configure_optimizers(self):
+        return [torch.optim.Adam(self.parameters(), lr=self.lr)]
+    
+    def log(self, name, to_log):
+        if name not in self.logs:
+            self.logs[name] = []
+        self.logs[name].append(to_log.detach().item())
+
+    def log_image(self, image):
+        import matplotlib.pyplot as plt
+        image = image[0][0].detach().cpu().numpy()
+        plt.imshow(image, cmap='afmhot')
+        plt.axis('off')
+        plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
+        plt.clf()
+
+
     
         
     def flops_and_parameters(self, input_shape):

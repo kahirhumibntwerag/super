@@ -71,4 +71,6 @@ def build_dataloader(config):
 
 if __name__ == '__main__':
     data = load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(2015), wavelength='171A')
-    print(data[0].compute().shape)
+    #print(data[0].compute().shape)
+    import sys
+    print(sys.path)

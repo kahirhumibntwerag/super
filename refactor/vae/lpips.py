@@ -176,7 +176,7 @@ class VAELOSS:
         self.l2_weight = l2_weight
     
     def kl_loss(self, mean, logvar):
-        kl_div = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp(), dim=1)
+        kl_div = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp(), )
         return torch.mean(kl_div)
     
     def l2_loss(self, input, reconstructed):

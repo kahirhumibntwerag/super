@@ -1,19 +1,19 @@
 import sys
 import os
 from tqdm import tqdm
-
-module_path = os.path.abspath(os.path.join('..', r'C:\Users\mhesh\OneDrive\Desktop\projee\super'))
-if module_path not in sys.path:
-    sys.path.append(module_path)
 import torch
 import torch.nn as nn
-from vae import VAE
-from discriminator import Discriminator
-from lpips  import VAELOSS
+from .vae import VAE
+from .discriminator import Discriminator
+from .lpips  import VAELOSS
 from torch.utils.data import DataLoader
 from data.Dataset import Dataset
 from data.LoadData import load_single_aws_zarr, AWS_ZARR_ROOT, s3_connection
 from torchvision import transforms
+import wandb
+import os
+import yaml
+
 
 class DataModule:
     def __init__(self, batch_size, downsample_factor, transform):
@@ -37,115 +37,168 @@ class DataModule:
         return DataLoader(val_dataset, batch_size=self.batch_size)       
 
     def prepare_train_data(self):
-        return self.data[:100]
+        return self.data[:10]
 
     def prepare_val_data(self):
-        return self.data[1000:1100]
+        return self.data[1000:1010]
+            
+
     
+class Trainer:
+    def __init__(self,
+                 max_epochs: int,
+                 device: str,
+                 log_every: int,
+                 checkpoint_path: str,
+                 log_path: str
+                 ):
+        
+        self.max_epochs = max_epochs
+        self.device = device
+        self.log_every = log_every
+        self.checkpoint_path = checkpoint_path
+        self.log_path = log_path
+        self.epoch = 0
+    
+    def fit(self, model, datamodule):
+        self.model = model
+        self.optimizers = model.configure_optimizers()
+        self.train_loader = datamodule.train_loader()
+        self.val_loader = datamodule.val_loader()
+        self.load_checkpoint()  
+        for self.epoch in tqdm(range(self.max_epochs)):
+            self.fit_()
+            self.validation_loop()
+            self.print_losses()
+            self.save_checkpoint()
+
+    def fit_(self):
+        self.model.train()
+        for data in tqdm(self.train_loader):
+            data = list(map(lambda t: t.to(self.device), data))
+            for opt_idx in range(len(self.optimizers)):
+                self.training_step(data, opt_idx)
+    
+    def training_step(self, data, opt_idx):
+        self.optimizers[opt_idx].zero_grad()
+        loss = self.model.training_step(data, opt_idx)
+        loss.backward()
+        self.optimizers[opt_idx].step()
+    
+    @torch.no_grad
+    def validation_loop(self):
+        self.model.eval()
+        for data in tqdm(self.val_loader):
+            data = list(map(lambda t: t.to(self.device), data))
+            self.model.validation_step(data)
+
+
+
+    def save_checkpoint(self):
+        if self.epoch % self.log_every == 0:
+            checkpoint = {
+                'model': self.model,
+                'optimizers': self.optimizers,
+                'epoch': self.epoch
+                }
+            
+            torch.save(checkpoint, os.path.join(self.log_path, f'checkpoint{self.epoch}.pth'))
+            print(f"Checkpoint saved at {self.log_path}") 
+    
+    def load_checkpoint(self):
+        if not self.checkpoint_path or not os.path.isfile(self.checkpoint_path):
+            print(f"Invalid checkpoint path: {self.checkpoint_path}")
+            return None
+
+        checkpoint = torch.load(self.checkpoint_path)
+        self.model.load_state_dict(checkpoint['model'])
+        self.optimizers.load_state_dict(checkpoint['optimizers'])
+        self.epoch = checkpoint['epoch']
+        print(f"Loaded checkpoint from {self.checkpoint_path}, resuming at epoch {self.epoch}.")
+    
+    def print_losses(self):
+        for loss_name, loss in self.model.logs.items():
+            print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
+            self.model.logs[loss_name] = []
+    
+    def log_images(self, image):
+        import matplotlib.pyplot as plt
+        image = image.detach().cpu().numpy()
+        plt.imshow(image, cmap='afmhot')
+        plt.axis('off')
+        plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
+        plt.clf()
+        
+
+
+
+      
+
+
 
 class VAEGAN(nn.Module):
-    def __init__(self,
-                  vae: VAE,
-                 discriminator: Discriminator,
-                 loss: VAELOSS,
-                 datamodule: DataModule,
-                 epochs: int,
-                 device: str
-                ):
+    def __init__(self, **configs):
         super().__init__()
-        self.vae = vae.to(device)
-        self.discriminator = discriminator.to(device)
-        self.loss = loss
-        self.vae_opt, self.disc_opt = self.configure_optimizers()
         
-        self.datamodule = datamodule
-        self.epochs = epochs
-        self.device = device
+        self.vae = VAE(**configs['vae'])
+        self.discriminator = Discriminator(**configs['discriminator'])
+        self.loss = VAELOSS(**configs['loss'])
+        self.logs = {} 
 
-
-    def vae_training_step(self, x):
+    def training_step(self, x, opt_idx):
         z, mean, logvar = self.vae.encoder.encode(x)
         decoded = self.vae.decoder.decode(z)
-        logits_fake = self.discriminator(decoded)
         
-        g_loss = self.loss.g_loss(logits_fake)
-        print(g_loss.shape)
-        kl_losss = self.loss.kl_loss(mean, logvar)
-        print(kl_losss.shape)
-        l2_loss = self.loss.l2_loss(x, decoded)
-        print(l2_loss.shape)
-        perceptual_loss = self.loss.perceptual_loss(x, decoded).view(-1)
-        print(perceptual_loss.shape)
+        if opt_idx == 0:
+            logits_fake = self.discriminator(decoded)
+            
+            g_loss = self.loss.g_loss(logits_fake)
+            kl_losss = self.loss.kl_loss(mean, logvar)
+            l2_loss = self.loss.l2_loss(x, decoded)
+            perceptual_loss = self.loss.perceptual_loss(x, decoded).view(-1)
 
-        perceptual_component = self.loss.perceptual_weight * perceptual_loss
-        l2_component = self.loss.l2_weight * l2_loss
-        adversarial_component = self.loss.adversarial_weight * g_loss
-        kl_component = self.loss.kl_weight * kl_losss
+            perceptual_component = self.loss.perceptual_weight * perceptual_loss
+            l2_component = self.loss.l2_weight * l2_loss
+            adversarial_component = self.loss.adversarial_weight * g_loss
+            kl_component = self.loss.kl_weight * kl_losss
 
-        loss = perceptual_component + l2_component + adversarial_component + kl_component
-        print(loss.shape)
-
-        return loss, decoded 
+            loss = perceptual_component + l2_component + adversarial_component + kl_component
+            return loss 
         
-    def discriminator_training_step(self, x, decoded):
-        logits_real = self.discriminator(x.contiguous().detach())      
-        logits_fake = self.discriminator(decoded.contiguous().detach())      
-        d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
-        return d_loss
-    
-
-    def training_step(self, x):
-        #vae part
-        self.vae_opt.zero_grad()
-        loss, decoded = self.vae_training_step(x)
-        loss.backward()
-        self.vae_opt.step()
-
-        #discriminator part
-        self.disc_opt.zero_grad()
-        d_loss = self.discriminator_training_step(x, decoded)
-        d_loss.backward()
-        self.disc_opt.step()
-
-        return loss.detach().item(), d_loss.detach().item()
-    
-    def training_batches(self):
-        self.vae.train()
-        self.discriminator.train()
-        training_loss_d = 0.0
-        training_loss_v = 0.0
-        for _, hr in tqdm(self.datamodule.train_loader()):
-            hr = hr.to(self.device)
-            vae_loss, disc_loss = self.training_step(hr)
-            training_loss_v += vae_loss
-            training_loss_d += disc_loss
-        
-        training_loss_v = training_loss_v/len(self.datamodule.train_loader())
-        training_loss_d = training_loss_d/len(self.datamodule.train_loader())
-        #print(f'VAE training loss: {training_loss_v/len(self.datamodule.train_loader())}')
-        #print(f'Discriminator training loss: {training_loss_d/len(self.datamodule.train_loader())}')
-
-        return training_loss_v, training_loss_d
-    
-    def main_loop(self):
-        for epoch in range(self.epochs):
-            training_loss_v, training_loss_d = self.training_batches()
-            print(f'Epoch {epoch} | VAE training loss: {training_loss_v}')
-            print(f'Epoch {epoch} | Discriminator training loss: {training_loss_d}')    
+        if opt_idx == 1:
+            logits_real = self.discriminator(x.contiguous().detach())      
+            logits_fake = self.discriminator(decoded.contiguous().detach())      
+            d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
+            return d_loss
     
     
     def configure_optimizers(self):
         disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.discriminator.lr, betas=(0.5, 0.9)) 
         vae_opt = torch.optim.Adam(self.vae.parameters(), lr=self.vae.lr, betas=(0.5, 0.9)) 
         return vae_opt, disc_opt
+    
+    def log(self, name, to_log):
+        if not self.logs[name]:
+            self.logs[name] = []
+        self.logs[name] += [to_log.detach().item()] 
+
+
+
+
+
+def load_config(config_path):
+    """loading the config file"""
+    with open(config_path, 'r') as file:
+        return yaml.safe_load(file)
+
 
 
 
 if __name__ == '__main__':
-    vae = VAE(in_channels=1)
-    disc = Discriminator(input_channels=1)
+    config = load_config(r'config\configG.yml')
     transform = transforms.Compose([transforms.ToTensor()])
-    datamodule = DataModule(batch_size=1, downsample_factor=1/4, transform=transform)
-    loss = VAELOSS(perceptual_weight=1.0, l2_weight=0.01, adversarial_weight=0.001, kl_weight=1e-6)
-    gan = VAEGAN(vae, disc, loss, datamodule, epochs=100, device='cpu')
-    gan.main_loop()
+    datamodule = DataModule(**config['data'], transform=transform )
+    vae = VAE(**config['vae_gan']['vae'])
+    #gan = VAEGAN(**config['vae_gan'])
+    trainer = Trainer(**config['trainer'])
+    trainer.fit(vae, datamodule)
