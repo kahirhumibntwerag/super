@@ -168,7 +168,7 @@ def spatial_average(x, keepdim=True):
 
 
 class VAELOSS:
-    def __init__(self, perceptual_weight, l2_weight, adversarial_weight, kl_weight):
+    def __init__(self, perceptual_weight=1.0, l2_weight=0.01, adversarial_weight=0.001, kl_weight=0.000001):
         self.lpips = LPIPS()
         self.perceptual_weight = perceptual_weight
         self.kl_weight = kl_weight
@@ -198,5 +198,5 @@ class VAELOSS:
 if __name__ == '__main__':
     x = torch.randn(1, 1, 128, 128)
     y = torch.randn(1, 1, 128, 128)
-    per = LPIPS()
-    print(per(x, y))
+    loss = VAELOSS()
+    print(loss.kl_loss(x, y).shape)

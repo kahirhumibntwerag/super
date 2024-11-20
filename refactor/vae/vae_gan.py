@@ -62,7 +62,7 @@ class Trainer:
         self.epoch = 0
     
     def fit(self, model, datamodule):
-        self.model = model
+        self.model = model.to(self.device)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
         self.val_loader = datamodule.val_loader()
@@ -127,8 +127,10 @@ class Trainer:
             self.model.logs[loss_name] = []
     
     @torch.no_grad()
-    def log_images(self, image):
-        image = image[0][0].detach().cpu().numpy()
+    def log_images(self, data):
+        _, image = data
+        decoded, _, _ = self.model(image/image.max())
+        image = decoded[0][0].detach().cpu().numpy()
         plt.imshow(image, cmap='afmhot')
         plt.axis('off')
         plt.savefig('image.png', bbox_inches='tight', pad_inches=0)

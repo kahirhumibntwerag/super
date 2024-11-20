@@ -23,7 +23,7 @@ data:
 
 trainer:
   max_epochs: 100
-  device: 'cpu'
+  device: 'cuda'
   log_every: 5
   checkpoint_path: ''
   log_path: 'refactor\vae\checkpoints'

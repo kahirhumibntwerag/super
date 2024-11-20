@@ -94,8 +94,10 @@ class VAE(nn.Module):
         if opt_idx == 0:
             _, hr = data
             hr = hr/hr.max()
-            decoded, _, _ = self(hr)
-            loss = nn.functional.mse_loss(hr, decoded)
+            decoded, mean, logvar = self(hr)
+            kl_loss = self.kl_loss(mean, logvar)
+            l2_loss = nn.functional.mse_loss(hr, decoded)
+            loss = l2_loss + 0.00006*kl_loss
             self.log('train_loss', loss)
             return loss
     
@@ -116,6 +118,10 @@ class VAE(nn.Module):
             self.logs[name] = []
         self.logs[name].append(to_log.detach().item())
 
+    def kl_loss(self, mean, logvar):
+        kl_div = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp(), )
+        return torch.mean(kl_div)
+
        
     def flops_and_parameters(self, input_shape):
         from ptflops import get_model_complexity_info
@@ -124,8 +130,9 @@ class VAE(nn.Module):
 
 
 if __name__ == '__main__':
-    x = torch.randn(1, 3, 512, 512)
+    x = torch.randn(1, 1, 512, 512)
+    lr = torch.randn(1, 1, 512, 512)
     with torch.no_grad():
         vae = VAE(in_channels=1, num_resblocks=1)
         #z, mean, logvar = vae.encoder.encode(x)
-        print(vae.flops_and_parameters((1, 512, 512)))
+        print(vae.training_step((x, lr), 0).shape)
