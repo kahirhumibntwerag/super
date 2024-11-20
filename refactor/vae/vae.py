@@ -96,16 +96,15 @@ class VAE(nn.Module):
             hr = hr/hr.max()
             decoded, _, _ = self(hr)
             loss = nn.functional.mse_loss(hr, decoded)
-            self.log('l2 training loss', loss)
+            self.log('train_loss', loss)
             return loss
     
     def validation_step(self, data):
         _, hr = data
         hr = hr/hr.max()
         decoded, _, _ = self(hr)
-        self.log_image(decoded)
         loss = nn.functional.mse_loss(hr, decoded)
-        self.log('l2 validation loss', loss)
+        self.log('val_loss', loss)
         return loss
 
     
@@ -117,17 +116,7 @@ class VAE(nn.Module):
             self.logs[name] = []
         self.logs[name].append(to_log.detach().item())
 
-    def log_image(self, image):
-        import matplotlib.pyplot as plt
-        image = image[0][0].detach().cpu().numpy()
-        plt.imshow(image, cmap='afmhot')
-        plt.axis('off')
-        plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
-        plt.clf()
-
-
-    
-        
+       
     def flops_and_parameters(self, input_shape):
         from ptflops import get_model_complexity_info
         flops, parameters = get_model_complexity_info(self, input_shape, as_strings=True, print_per_layer_stat=False)
@@ -137,6 +126,6 @@ class VAE(nn.Module):
 if __name__ == '__main__':
     x = torch.randn(1, 3, 512, 512)
     with torch.no_grad():
-        vae = VAE()
-        z, mean, logvar = vae.encoder.encode(x)
-        print(z.shape, mean.shape, logvar.shape)
+        vae = VAE(in_channels=1, num_resblocks=1)
+        #z, mean, logvar = vae.encoder.encode(x)
+        print(vae.flops_and_parameters((1, 512, 512)))

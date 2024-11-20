@@ -13,6 +13,7 @@ from torchvision import transforms
 import wandb
 import os
 import yaml
+import matplotlib.pyplot as plt
 
 
 class DataModule:
@@ -75,26 +76,30 @@ class Trainer:
     def fit_(self):
         self.model.train()
         for data in tqdm(self.train_loader):
-            data = list(map(lambda t: t.to(self.device), data))
+            data = [t.to(self.device) for t in data ]
             for opt_idx in range(len(self.optimizers)):
                 self.training_step(data, opt_idx)
     
     def training_step(self, data, opt_idx):
-        self.optimizers[opt_idx].zero_grad()
         loss = self.model.training_step(data, opt_idx)
+        self.optimizers[opt_idx].zero_grad()
         loss.backward()
         self.optimizers[opt_idx].step()
     
-    @torch.no_grad
+    @torch.no_grad()
     def validation_loop(self):
         self.model.eval()
         for data in tqdm(self.val_loader):
-            data = list(map(lambda t: t.to(self.device), data))
+            data = [t.to(self.device) for t in data ]
             self.model.validation_step(data)
+        self.log_images(data)
+        
 
 
 
     def save_checkpoint(self):
+        if not os.path.exists(self.log_path):
+            os.makedirs(self.log_path)
         if self.epoch % self.log_every == 0:
             checkpoint = {
                 'model': self.model,
@@ -121,9 +126,9 @@ class Trainer:
             print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
             self.model.logs[loss_name] = []
     
+    @torch.no_grad()
     def log_images(self, image):
-        import matplotlib.pyplot as plt
-        image = image.detach().cpu().numpy()
+        image = image[0][0].detach().cpu().numpy()
         plt.imshow(image, cmap='afmhot')
         plt.axis('off')
         plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
