@@ -79,7 +79,7 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, in_channels=3, latent_channels=3, channels=[64, 128], num_resblocks=5, lr=1e-4):
+    def __init__(self, in_channels=3, latent_channels=3, channels=[64, 128, 256], num_resblocks=5, lr=1e-4):
         super().__init__()
         self.lr = lr
         self.encoder = Encoder(in_channels, latent_channels, channels, num_resblocks)
@@ -135,4 +135,4 @@ if __name__ == '__main__':
     with torch.no_grad():
         vae = VAE(in_channels=1, num_resblocks=1)
         #z, mean, logvar = vae.encoder.encode(x)
-        print(vae(x)[1].shape)
+        print(vae.flops_and_parameters((1, 512, 512)))

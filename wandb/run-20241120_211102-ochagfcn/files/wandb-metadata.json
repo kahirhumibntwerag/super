@@ -1,0 +1,30 @@
+{
+  "os": "Windows-11-10.0.22631-SP0",
+  "python": "3.12.7",
+  "startedAt": "2024-11-20T20:11:02.119774Z",
+  "program": "-m refactor.vae.vae_gan",
+  "git": {
+    "remote": "https://github.com/kahirhumibntwerag/super.git",
+    "commit": "47d82fecc2722772f0561389806a4695be9a19e9"
+  },
+  "email": "mhesham253@gmail.com",
+  "root": "C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\super",
+  "host": "BigBoss",
+  "username": "mhesh",
+  "executable": "C:\\Users\\mhesh\\OneDrive\\Desktop\\projee\\venv\\Scripts\\python.exe",
+  "cpu_count": 8,
+  "cpu_count_logical": 12,
+  "disk": {
+    "/": {
+      "total": "509722226688",
+      "used": "341366833152"
+    }
+  },
+  "memory": {
+    "total": "16873545728"
+  },
+  "cpu": {
+    "count": 8,
+    "countLogical": 12
+  }
+}

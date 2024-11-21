@@ -199,4 +199,4 @@ if __name__ == '__main__':
     x = torch.randn(1, 1, 128, 128)
     y = torch.randn(1, 1, 128, 128)
     loss = VAELOSS()
-    print(loss.kl_loss(x, y).shape)
+    print(loss.g_loss(x).shape)

@@ -1,0 +1,26 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\super\refactor\vae\vae_gan.py", line 215, in <module>
+    trainer.fit(vae, datamodule)
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\super\refactor\vae\vae_gan.py", line 66, in fit
+    self.model = model.to(self.device)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\nn\modules\module.py", line 1174, in to
+    return self._apply(convert)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\nn\modules\module.py", line 780, in _apply
+    module._apply(fn)
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\nn\modules\module.py", line 780, in _apply
+    module._apply(fn)
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\nn\modules\module.py", line 780, in _apply
+    module._apply(fn)
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\nn\modules\module.py", line 805, in _apply
+    param_applied = fn(param)
+                    ^^^^^^^^^
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\nn\modules\module.py", line 1160, in convert
+    return t.to(
+           ^^^^^
+  File "C:\Users\mhesh\OneDrive\Desktop\projee\venv\Lib\site-packages\torch\cuda\__init__.py", line 305, in _lazy_init
+    raise AssertionError("Torch not compiled with CUDA enabled")
+AssertionError: Torch not compiled with CUDA enabled

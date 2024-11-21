@@ -205,7 +205,7 @@ class VAE(nn.Module):
     """
     VAE network, uses the above encoder and decoder blocks
     """
-    def __init__(self, channel_in=3, ch=64, blocks=(1, 2), latent_channels=256, num_res_blocks=8, norm_type="bn",
+    def __init__(self, channel_in=1, ch=64, blocks=(1, 2), latent_channels=256, num_res_blocks=8, norm_type="bn",
                  deep_model=False):
         super(VAE, self).__init__()
         """Res VAE Network
@@ -223,3 +223,44 @@ class VAE(nn.Module):
         encoding, mu, log_var = self.encoder(x)
         recon_img = self.decoder(encoding)
         return recon_img, mu, log_var
+
+    def training_step(self, data, opt_idx):
+        if opt_idx == 0:
+            _, hr = data
+            decoded, mean, logvar = self(hr)
+            kl_loss = self.kl_loss(mean, logvar)
+            l2_loss = nn.functional.mse_loss(hr, decoded)
+            loss = l2_loss + 0.00006*kl_loss
+            self.log('train_loss', loss)
+            return loss
+    
+    def validation_step(self, data):
+        _, hr = data
+        decoded, _, _ = self(hr)
+        loss = nn.functional.mse_loss(hr, decoded)
+        self.log('val_loss', loss)
+        return loss
+
+    
+    def configure_optimizers(self):
+        return [torch.optim.Adam(self.parameters(), lr=self.lr)]
+    
+    def log(self, name, to_log):
+        if name not in self.logs:
+            self.logs[name] = []
+        self.logs[name].append(to_log.detach().item())
+    
+    def flops_and_parameters(self, input_shape):
+        from ptflops import get_model_complexity_info
+        flops, parameters = get_model_complexity_info(self, input_shape, as_strings=True, print_per_layer_stat=False)
+        return flops, parameters
+
+
+    def kl_loss(self, mean, logvar):
+        kl_div = -0.5 * (1 + logvar - mean.pow(2) - logvar.exp()).mean()
+        return kl_div
+    
+if __name__ == '__main__':
+    x = torch.randn(1, 1, 512, 512)
+    vae = VAE()
+    print(vae.flops_and_parameters((1, 512, 512)))

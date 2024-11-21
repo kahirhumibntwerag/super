@@ -2,7 +2,7 @@ vae_gan:
   vae:
     in_channels: 1
     latent_channels: 1
-    channels: [64, 128, 256, 512]
+    channels: [64, 128, 256]
     num_resblocks: 1 
     lr: 0.0001
   
@@ -15,7 +15,7 @@ vae_gan:
     perceptual_weight: 1.0
     l2_weight: 0.01
     adversarial_weight: 0.001
-    kl_weight: 0.00006
+    kl_weight: 0.000006
 data:
   batch_size: 4
   downsample_factor: 0.25

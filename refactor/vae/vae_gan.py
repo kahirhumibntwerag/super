@@ -164,14 +164,18 @@ class VAEGAN(nn.Module):
             logits_fake = self.discriminator(decoded)
             
             g_loss = self.loss.g_loss(logits_fake)
-            kl_losss = self.loss.kl_loss(mean, logvar)
+            kl_loss = self.loss.kl_loss(mean, logvar)
             l2_loss = self.loss.l2_loss(x, decoded)
-            perceptual_loss = self.loss.perceptual_loss(x, decoded).view(-1)
+            perceptual_loss = self.loss.perceptual_loss(x, decoded)
+            self.log('g_loss', g_loss)
+            self.log('kl_loss', kl_loss)
+            self.log('l2_loss', l2_loss)
+            self.log('perceptual_loss', perceptual_loss)
 
             perceptual_component = self.loss.perceptual_weight * perceptual_loss
             l2_component = self.loss.l2_weight * l2_loss
             adversarial_component = self.loss.adversarial_weight * g_loss
-            kl_component = self.loss.kl_weight * kl_losss
+            kl_component = self.loss.kl_weight * kl_loss
 
             loss = perceptual_component + l2_component + adversarial_component + kl_component
             return loss 
@@ -180,6 +184,7 @@ class VAEGAN(nn.Module):
             logits_real = self.discriminator(x.contiguous().detach())      
             logits_fake = self.discriminator(decoded.contiguous().detach())      
             d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
+            self.log('d_loss', d_loss)
             return d_loss
     
     
@@ -189,9 +194,9 @@ class VAEGAN(nn.Module):
         return vae_opt, disc_opt
     
     def log(self, name, to_log):
-        if not self.logs[name]:
+        if name not in self.logs:
             self.logs[name] = []
-        self.logs[name] += [to_log.detach().item()] 
+        self.logs[name].append(to_log.detach().item())
 
 
 
@@ -202,11 +207,17 @@ def load_config(config_path):
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
 
-
+def rescalee(images):
+    images_clipped = torch.clamp(images, min=1)
+    images_log = torch.log(images_clipped)
+    max_value = torch.log(torch.tensor(20000))
+    max_value = torch.clamp(max_value, min=1e-9)
+    images_normalized = images_log / max_value
+    return images_normalized
 
 
 if __name__ == '__main__':
-    config = load_config(os.path.join('config', 'configG'))
+    config = load_config(os.path.join('config', 'configG.yml'))
     transform = transforms.Compose([transforms.ToTensor()])
     datamodule = DataModule(**config['data'], transform=transform )
     vae = VAE(**config['vae_gan']['vae'])
