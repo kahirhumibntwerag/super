@@ -38,7 +38,7 @@ class DataModule:
         return DataLoader(val_dataset, batch_size=self.batch_size)       
 
     def prepare_train_data(self):
-        return self.data[:10]
+        return self.data[:100]
 
     def prepare_val_data(self):
         return self.data[1000:1010]
@@ -103,27 +103,31 @@ class Trainer:
     def save_checkpoint(self):
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
+
         if self.epoch % self.log_every == 0:
             checkpoint = {
-                'model': self.model,
-                'optimizers': self.optimizers,
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': [opt.state_dict() for opt in self.optimizers],
                 'epoch': self.epoch
-                }
-            
-            torch.save(checkpoint, os.path.join(self.log_path, f'checkpoint{self.epoch}.pth'))
-            print(f"Checkpoint saved at {self.log_path}") 
-    
+            }
+
+            checkpoint_file = os.path.join(self.log_path, f'checkpoint{self.epoch}.pth')
+            torch.save(checkpoint, checkpoint_file)
+            print(f"Checkpoint saved at {checkpoint_file}")
+
     def load_checkpoint(self):
         if not self.checkpoint_path or not os.path.isfile(self.checkpoint_path):
             print(f"Invalid checkpoint path: {self.checkpoint_path}")
-            return None
+            return
 
         checkpoint = torch.load(self.checkpoint_path)
-        self.model.load_state_dict(checkpoint['model'])
-        self.optimizers.load_state_dict(checkpoint['optimizers'])
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        for opt, state_dict in zip(self.optimizers, checkpoint['optimizer_state_dict']):
+            opt.load_state_dict(state_dict)
+
         self.epoch = checkpoint['epoch']
         print(f"Loaded checkpoint from {self.checkpoint_path}, resuming at epoch {self.epoch}.")
-    
+
     def print_losses(self):
         for loss_name, loss in self.model.logs.items():
             print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
@@ -133,7 +137,7 @@ class Trainer:
     @torch.no_grad()
     def log_images(self, data):
         _, image = data
-        decoded, _, _ = self.model(image/image.max())
+        decoded, _, _ = self.model.vae(image)
         image = decoded[0][0].detach().cpu().numpy()
         plt.imshow(image, cmap='afmhot')
         plt.axis('off')
@@ -156,37 +160,56 @@ class VAEGAN(nn.Module):
         self.loss = VAELOSS(**configs['loss'])
         self.logs = {} 
 
+
     def training_step(self, x, opt_idx):
-        z, mean, logvar = self.vae.encoder.encode(x)
-        decoded = self.vae.decoder.decode(z)
-        
-        if opt_idx == 0:
-            logits_fake = self.discriminator(decoded)
-            
-            g_loss = self.loss.g_loss(logits_fake)
-            kl_loss = self.loss.kl_loss(mean, logvar)
-            l2_loss = self.loss.l2_loss(x, decoded)
-            perceptual_loss = self.loss.perceptual_loss(x, decoded)
-            self.log('g_loss', g_loss)
-            self.log('kl_loss', kl_loss)
-            self.log('l2_loss', l2_loss)
-            self.log('perceptual_loss', perceptual_loss)
+      _, hr = x
+      z, mean, logvar = self.vae.encoder.encode(hr)
+      decoded = self.vae.decoder.decode(z)
+      
+      if opt_idx == 0:
+          logits_fake = self.discriminator(decoded)
+          
+          g_loss = self.loss.g_loss(logits_fake)
+          kl_loss = self.loss.kl_loss(mean, logvar)
+          l2_loss = self.loss.l2_loss(hr, decoded)
+          perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
+          self.log('train_g_loss', g_loss)
+          self.log('train_kl_loss', kl_loss)
+          self.log('train_l2_loss', l2_loss)
+          self.log('train_perceptual_loss', perceptual_loss)
 
-            perceptual_component = self.loss.perceptual_weight * perceptual_loss
-            l2_component = self.loss.l2_weight * l2_loss
-            adversarial_component = self.loss.adversarial_weight * g_loss
-            kl_component = self.loss.kl_weight * kl_loss
+          perceptual_component = self.loss.perceptual_weight * perceptual_loss
+          l2_component = self.loss.l2_weight * l2_loss
+          adversarial_component = self.loss.adversarial_weight * g_loss
+          kl_component = self.loss.kl_weight * kl_loss
 
-            loss = perceptual_component + l2_component + adversarial_component + kl_component
-            return loss 
-        
-        if opt_idx == 1:
-            logits_real = self.discriminator(x.contiguous().detach())      
-            logits_fake = self.discriminator(decoded.contiguous().detach())      
-            d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
-            self.log('d_loss', d_loss)
-            return d_loss
+          loss = perceptual_component + l2_component + adversarial_component + kl_component
+          return loss 
+      
+      if opt_idx == 1:
+          logits_real = self.discriminator(hr.contiguous().detach())      
+          logits_fake = self.discriminator(decoded.contiguous().detach())      
+          d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
+          self.log('d_loss', d_loss)
+          return d_loss
     
+    def validation_step(self, x):
+      _, hr = x
+      z, mean, logvar = self.vae.encoder.encode(hr)
+      decoded = self.vae.decoder.decode(z)
+     
+      logits_fake = self.discriminator(decoded)
+      
+      g_loss = self.loss.g_loss(logits_fake)
+      kl_loss = self.loss.kl_loss(mean, logvar)
+      l2_loss = self.loss.l2_loss(hr, decoded)
+      perceptual_loss = torch.mean(self.loss.perceptual_loss(hr, decoded))
+
+      self.log('val_g_loss', g_loss)
+      self.log('val_kl_loss', kl_loss)
+      self.log('val_l2_loss', l2_loss)
+      self.log('val_perceptual_loss', perceptual_loss)
+  
     
     def configure_optimizers(self):
         disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.discriminator.lr, betas=(0.5, 0.9)) 
@@ -218,9 +241,9 @@ def rescalee(images):
 
 if __name__ == '__main__':
     config = load_config(os.path.join('config', 'configG.yml'))
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose([transforms.ToTensor(), rescalee])
     datamodule = DataModule(**config['data'], transform=transform )
-    vae = VAE(**config['vae_gan']['vae'])
-    #gan = VAEGAN(**config['vae_gan'])
+    #vae = VAE(**config['vae_gan']['vae'])
+    gan = VAEGAN(**config['vae_gan'])
     trainer = Trainer(**config['trainer'])
-    trainer.fit(vae, datamodule)
+    trainer.fit(gan, datamodule)

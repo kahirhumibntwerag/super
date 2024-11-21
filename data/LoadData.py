@@ -6,6 +6,7 @@ import dask.array as da
 from torchvision import transforms
 from .Dataset import Dataset
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 AWS_ZARR_ROOT = (
     "s3://gov-nasa-hdrl-data1/contrib/fdl-sdoml/fdl-sdoml-v2/sdomlv2.zarr/"
@@ -67,10 +68,15 @@ def build_dataloader(config):
     train_loader = DataLoader(train_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler(train_dataset))
     val_loader = DataLoader(val_dataset, batch_size=config.RRDB.training.batch_size, shuffle=False, sampler=DistributedSampler(val_dataset))
     return train_loader, val_loader
-
-
+import torch
+def rescalee(images):
+    images_clipped = torch.clamp(images, min=1)
+    images_log = torch.log(images_clipped)
+    max_value = torch.log(torch.tensor(20000))
+    max_value = torch.clamp(max_value, min=1e-9)
+    images_normalized = images_log / max_value
+    return images_normalized
 if __name__ == '__main__':
     data = load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(2015), wavelength='171A')
-    #print(data[0].compute().shape)
-    import sys
-    print(sys.path)
+    plt.imshow(rescalee(torch.from_numpy(data[1009].compute())).numpy(), cmap='afmhot')
+    plt.show()

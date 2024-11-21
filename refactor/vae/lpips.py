@@ -167,8 +167,10 @@ def spatial_average(x, keepdim=True):
 
 
 
-class VAELOSS:
+
+class VAELOSS(nn.Module):
     def __init__(self, perceptual_weight=1.0, l2_weight=0.01, adversarial_weight=0.001, kl_weight=0.000001):
+        super().__init__()
         self.lpips = LPIPS()
         self.perceptual_weight = perceptual_weight
         self.kl_weight = kl_weight
@@ -176,8 +178,8 @@ class VAELOSS:
         self.l2_weight = l2_weight
     
     def kl_loss(self, mean, logvar):
-        kl_div = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp(), )
-        return torch.mean(kl_div)
+        kl_div = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
+        return kl_div
     
     def l2_loss(self, input, reconstructed):
         return F.mse_loss(input, reconstructed)
@@ -193,7 +195,6 @@ class VAELOSS:
     
     def g_loss(self, fake_logits):
         return -torch.mean(fake_logits)
-
 
 if __name__ == '__main__':
     x = torch.randn(1, 1, 128, 128)
