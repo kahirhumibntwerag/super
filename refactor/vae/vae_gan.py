@@ -3,7 +3,7 @@ import os
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-from .vae import VAE
+from .test import VAE
 from .discriminator import Discriminator
 from .lpips  import VAELOSS
 from torch.utils.data import DataLoader
@@ -14,7 +14,9 @@ import wandb
 import os
 import yaml
 import matplotlib.pyplot as plt
-
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group
+from torch.utils.data.distributed import DistributedSampler
 
 class DataModule:
     def __init__(self, batch_size, downsample_factor, transform):
@@ -30,12 +32,12 @@ class DataModule:
     def train_loader(self):
         train_data = self.prepare_train_data()
         train_dataset = Dataset(numpy_data=train_data, downsample_factor=self.downsample_factor, transform=self.transform)
-        return DataLoader(train_dataset, batch_size=self.batch_size)
+        return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, sampler=DistributedSampler(train_dataset))
     
     def val_loader(self):
         val_data = self.prepare_val_data()
         val_dataset = Dataset(numpy_data=val_data, downsample_factor=self.downsample_factor, transform=self.transform)
-        return DataLoader(val_dataset, batch_size=self.batch_size)       
+        return DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, sampler=DistributedSampler(val_dataset))       
 
     def prepare_train_data(self):
         return self.data[:100]
@@ -51,11 +53,17 @@ class Trainer:
                  device: str,
                  log_every: int,
                  checkpoint_path: str,
-                 log_path: str
+                 log_path: str,
+                 accelerator: bool
                  ):
         
         self.max_epochs = max_epochs
-        self.device = device
+        self.accelerator = accelerator
+        if accelerator == 'ddp':
+            self.setup_ddp()
+            self.device = int(os.environ['LOCAL_RANK'])
+        else:
+            self.device = device
         self.log_every = log_every
         self.checkpoint_path = checkpoint_path
         self.log_path = log_path
@@ -64,6 +72,8 @@ class Trainer:
     def fit(self, model, datamodule):
         wandb.init(project="your_project_name")
         self.model = model.to(self.device)
+        if self.accelerator == 'ddp':
+            self.model = DDP(self.model, device_ids=[self.device])
         wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
@@ -74,6 +84,9 @@ class Trainer:
             self.validation_loop()
             self.print_losses()
             self.save_checkpoint()
+        
+        if self.accelerator == 'ddp':
+            destroy_process_group()
         wandb.finish()
 
     def fit_(self):
@@ -104,9 +117,9 @@ class Trainer:
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
 
-        if self.epoch % self.log_every == 0:
+        if self.device == 0 and self.epoch % self.log_every == 0:
             checkpoint = {
-                'model_state_dict': self.model.state_dict(),
+                'model_state_dict': self.model.module.state_dict() if self.accelerator == 'ddp' else self.model.state_dict(),
                 'optimizer_state_dict': [opt.state_dict() for opt in self.optimizers],
                 'epoch': self.epoch
             }
@@ -149,7 +162,11 @@ class Trainer:
         plt.axis('off')
         plt.savefig(os.path.join(self.log_path, f'imageO{self.epoch}.png'), bbox_inches='tight', pad_inches=0)
         plt.clf()
-        
+    
+    def setup_ddp():
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+        init_process_group(backend='nccl')
+            
 
 
 
@@ -161,7 +178,7 @@ class VAEGAN(nn.Module):
     def __init__(self, **configs):
         super().__init__()
         
-        self.vae = VAE(**configs['vae'])
+        self.vae = VAE()
         self.discriminator = Discriminator(**configs['discriminator'])
         self.loss = VAELOSS(**configs['loss'])
         self.logs = {} 
