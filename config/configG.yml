@@ -27,3 +27,4 @@ trainer:
   log_every: 10
   checkpoint_path: ''
   log_path: 'drive/MyDrive/testing'
+  accelerator: 'ddp'
