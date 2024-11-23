@@ -205,15 +205,15 @@ class VAE(nn.Module):
     """
     VAE network, uses the above encoder and decoder blocks
     """
-    def __init__(self, channel_in=1, ch=64, blocks=(1, 2), latent_channels=256, num_res_blocks=8, norm_type="bn",
-                 deep_model=False):
+    def __init__(self, channel_in=1, ch=64, blocks=(1, 2), latent_channels=3, num_res_blocks=8, norm_type="bn",
+                 deep_model=False, lr=0.0001):
         super(VAE, self).__init__()
         """Res VAE Network
         channel_in  = number of channels of the image
         z = the number of channels of the latent representation
         (for a 64x64 image this is the size of the latent vector)
         """
-
+        self.lr = lr
         self.encoder = Encoder(channel_in, ch=ch, blocks=blocks, latent_channels=latent_channels,
                                num_res_blocks=num_res_blocks, norm_type=norm_type, deep_model=deep_model)
         self.decoder = Decoder(channel_in, ch=ch, blocks=blocks, latent_channels=latent_channels,

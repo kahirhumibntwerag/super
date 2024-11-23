@@ -9,21 +9,21 @@ vae_gan:
   discriminator:
     in_channels: 1
     channel_list: [64, 128, 256]
-    lr: 1e-6
+    lr: 0.000001
   
   loss:
     perceptual_weight: 1.0
     l2_weight: 0.01
     adversarial_weight: 0.001
-    kl_weight: 0.000006
+    kl_weight: 0.000001
 data:
-  batch_size: 4
+  batch_size: 1
   downsample_factor: 0.25
 
 
 trainer:
   max_epochs: 100
   device: 'cuda'
-  log_every: 5
+  log_every: 10
   checkpoint_path: ''
-  log_path: 'refactor\vae\checkpoints'
+  log_path: 'drive/MyDrive/testing'

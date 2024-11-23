@@ -9,6 +9,7 @@ from abc import abstractmethod
 import os, hashlib
 import requests
 from tqdm import tqdm
+from torchvision.transforms import Normalize
 
 URL_MAP = {
     "vgg_lpips": "https://heibox.uni-heidelberg.de/f/607503859c864bc1b30b/?dl=1"
@@ -171,7 +172,7 @@ def spatial_average(x, keepdim=True):
 class VAELOSS(nn.Module):
     def __init__(self, perceptual_weight=1.0, l2_weight=0.01, adversarial_weight=0.001, kl_weight=0.000001):
         super().__init__()
-        self.lpips = LPIPS()
+        self.lpips = PerceptualLoss()
         self.perceptual_weight = perceptual_weight
         self.kl_weight = kl_weight
         self.adversarial_weight = adversarial_weight
@@ -184,8 +185,8 @@ class VAELOSS(nn.Module):
     def l2_loss(self, input, reconstructed):
         return F.mse_loss(input, reconstructed)
     
-    def perceptual_loss(self, input, reconstructed):
-        return self.lpips(input, reconstructed)
+    def perceptual_loss(self, hr, reconstructed):
+        return self.lpips(hr, reconstructed)
 
     def adversarial_loss(self, logits_real, logits_fake):
         loss_real = torch.mean(F.relu(1. - logits_real))
@@ -195,6 +196,57 @@ class VAELOSS(nn.Module):
     
     def g_loss(self, fake_logits):
         return -torch.mean(fake_logits)
+
+class PerceptualLoss(nn.Module):
+    def __init__(self):
+        super(PerceptualLoss, self).__init__()
+        # Load pre-trained VGG19 model
+        self.vgg = models.vgg19(pretrained=True).features
+        self.vgg = self.vgg.to('cuda' if torch.cuda.is_available() else 'cpu')
+        for param in self.vgg.parameters():
+            param.requires_grad = False
+
+        # Define layers to use for feature extraction
+        self.layers = {
+            '3': 'relu1_2',
+            '8': 'relu2_2',
+            '17': 'relu3_3',
+            '26': 'relu4_3'
+        }
+
+        # Normalization for VGG19
+        self.normalize = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    def get_features(self, image):
+        features = {}
+        x = image
+        for name, layer in self.vgg._modules.items():
+            x = layer(x)
+            if name in self.layers:
+                features[self.layers[name]] = x
+        return features
+
+    def forward(self, target_image, output_image):
+        # Preprocess the images
+        #target_image = target_image/target_image.max()
+        target_image = target_image.repeat(1,3,1,1)
+
+        #output_image = output_image/output_image.max()
+        output_image = output_image.repeat(1,3,1,1)
+
+        target_image = self.normalize(target_image)
+        output_image = self.normalize(output_image)
+
+        # Extract features
+        target_features = self.get_features(target_image)
+        output_features = self.get_features(output_image)
+
+        # Calculate Perceptual Loss
+        loss = 0.0
+        for layer in self.layers.values():
+            loss += torch.nn.functional.l1_loss(target_features[layer], output_features[layer])
+
+        return loss
 
 if __name__ == '__main__':
     x = torch.randn(1, 1, 128, 128)

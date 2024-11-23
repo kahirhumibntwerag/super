@@ -41,7 +41,7 @@ class DataModule:
         return self.data[:100]
 
     def prepare_val_data(self):
-        return self.data[1000:1010]
+        return self.data[100:110]
             
 
     
@@ -78,7 +78,7 @@ class Trainer:
 
     def fit_(self):
         self.model.train()
-        for data in tqdm(self.train_loader):
+        for data in self.train_loader:
             data = [t.to(self.device) for t in data ]
             for opt_idx in range(len(self.optimizers)):
                 self.training_step(data, opt_idx)
@@ -92,7 +92,7 @@ class Trainer:
     @torch.no_grad()
     def validation_loop(self):
         self.model.eval()
-        for data in tqdm(self.val_loader):
+        for data in self.val_loader:
             data = [t.to(self.device) for t in data ]
             self.model.validation_step(data)
         self.log_images(data)
@@ -138,10 +138,16 @@ class Trainer:
     def log_images(self, data):
         _, image = data
         decoded, _, _ = self.model.vae(image)
-        image = decoded[0][0].detach().cpu().numpy()
+        decoded = inverse_rescalee(decoded)[0][0].detach().cpu().numpy()
+        plt.imshow(decoded, cmap='afmhot')
+        plt.axis('off')
+        plt.savefig(os.path.join(self.log_path, f'image{self.epoch}.png'), bbox_inches='tight', pad_inches=0)
+        plt.clf()
+        
+        image = inverse_rescalee(image)[0][0].detach().cpu().numpy()
         plt.imshow(image, cmap='afmhot')
         plt.axis('off')
-        plt.savefig('image.png', bbox_inches='tight', pad_inches=0)
+        plt.savefig(os.path.join(self.log_path, f'imageO{self.epoch}.png'), bbox_inches='tight', pad_inches=0)
         plt.clf()
         
 
@@ -160,15 +166,13 @@ class VAEGAN(nn.Module):
         self.loss = VAELOSS(**configs['loss'])
         self.logs = {} 
 
-
     def training_step(self, x, opt_idx):
       _, hr = x
-      z, mean, logvar = self.vae.encoder.encode(hr)
-      decoded = self.vae.decoder.decode(z)
+      decoded, mean, logvar = self.vae(hr)
       
       if opt_idx == 0:
+
           logits_fake = self.discriminator(decoded)
-          
           g_loss = self.loss.g_loss(logits_fake)
           kl_loss = self.loss.kl_loss(mean, logvar)
           l2_loss = self.loss.l2_loss(hr, decoded)
@@ -187,16 +191,15 @@ class VAEGAN(nn.Module):
           return loss 
       
       if opt_idx == 1:
-          logits_real = self.discriminator(hr.contiguous().detach())      
-          logits_fake = self.discriminator(decoded.contiguous().detach())      
-          d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
-          self.log('d_loss', d_loss)
-          return d_loss
-    
+            logits_real = self.discriminator(hr.contiguous().detach())      
+            logits_fake = self.discriminator(decoded.contiguous().detach())      
+            d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
+            self.log('d_loss', d_loss)
+            return d_loss
+      
     def validation_step(self, x):
       _, hr = x
-      z, mean, logvar = self.vae.encoder.encode(hr)
-      decoded = self.vae.decoder.decode(z)
+      decoded, mean, logvar = self.vae(hr)
      
       logits_fake = self.discriminator(decoded)
       
@@ -237,8 +240,19 @@ def rescalee(images):
     max_value = torch.clamp(max_value, min=1e-9)
     images_normalized = images_log / max_value
     return images_normalized
+def inverse_rescalee(images_normalized):
+    max_value = torch.log(torch.tensor(20000.0))
+    max_value = torch.clamp(max_value, min=1e-9)
+    images_log = images_normalized * max_value
+    images_clipped = torch.exp(images_log)
 
+    return images_clipped
+def rescale(images):
 
+    rescaled_images = images / 20000
+    rescaled_images = (rescaled_images*2) - 1
+
+    return rescaled_images
 if __name__ == '__main__':
     config = load_config(os.path.join('config', 'configG.yml'))
     transform = transforms.Compose([transforms.ToTensor(), rescalee])
