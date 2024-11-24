@@ -73,9 +73,9 @@ class Trainer:
         self.model = model.to(self.device)
         if self.accelerator == 'ddp':
             self.model = DDP(self.model, device_ids=[self.device])
-        #if self.device == 0:
-        #    wandb.init(project="your_project_name")
-        #    wandb.watch(self.model, log='all', log_freq=5)
+        if self.device == 0:
+            wandb.init(project="your_project_name")
+            wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
         self.val_loader = datamodule.val_loader()
@@ -88,8 +88,8 @@ class Trainer:
         
         if self.accelerator == 'ddp':
             destroy_process_group()
-        #if self.device == 0:
-        #    wandb.finish()
+        if self.device == 0:
+            wandb.finish()
 
     def fit_(self):
         self.model.train()
@@ -146,7 +146,8 @@ class Trainer:
     def print_losses(self):
         for loss_name, loss in self.model.module.logs.items():
             print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
-            #wandb.log({loss_name:sum(loss)/len(loss)})
+            if self.device == 0:
+                wandb.log({loss_name:sum(loss)/len(loss)})
             self.model.module.logs[loss_name] = []
     
     @torch.no_grad()
