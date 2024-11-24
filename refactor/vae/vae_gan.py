@@ -73,9 +73,9 @@ class Trainer:
         self.model = model.to(self.device)
         if self.accelerator == 'ddp':
             self.model = DDP(self.model, device_ids=[self.device])
-        #if self.device == 0:
-        #    wandb.init(project="your_project_name")
-        #    wandb.watch(self.model, log='all', log_freq=5)
+        if self.device == 0:
+            wandb.init(project="your_project_name")
+            wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
         self.val_loader = datamodule.val_loader()
@@ -88,8 +88,8 @@ class Trainer:
         
         if self.accelerator == 'ddp':
             destroy_process_group()
-        #if self.device == 0:
-        #    wandb.finish()
+        if self.device == 0:
+            wandb.finish()
 
     def fit_(self):
         self.model.train()
@@ -146,26 +146,24 @@ class Trainer:
     def print_losses(self):
         for loss_name, loss in self.model.module.logs.items():
             print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
-            #if self.device == 0:
-            #    wandb.log({loss_name:sum(loss)/len(loss)})
+            if self.device == 0:
+                wandb.log({loss_name:sum(loss)/len(loss)})
             self.model.module.logs[loss_name] = []
     
     @torch.no_grad()
     def log_images(self, data):
         _, image = data
+
         decoded, _, _ = self.model.module.vae(image)
         decoded = inverse_rescalee(decoded)[0][0].detach().cpu().numpy()
+        
+        plt.figure()
         plt.imshow(decoded, cmap='afmhot')
         plt.axis('off')
         plt.savefig(os.path.join(self.log_path, f'image{self.epoch}.png'), bbox_inches='tight', pad_inches=0)
+        if self.device == 0:
+            wandb.log({f"decoded_image_epoch_{self.epoch}": wandb.Image(plt, caption=f"Decoded Image at Epoch {self.epoch}")})
         plt.clf()
-        
-        image = inverse_rescalee(image)[0][0].detach().cpu().numpy()
-        plt.imshow(image, cmap='afmhot')
-        plt.axis('off')
-        plt.savefig(os.path.join(self.log_path, f'imageO{self.epoch}.png'), bbox_inches='tight', pad_inches=0)
-        plt.clf()
-    
     def setup_ddp(self):
         torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
         init_process_group(backend='nccl')
