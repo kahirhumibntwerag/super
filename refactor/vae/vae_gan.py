@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 from torch.utils.data.distributed import DistributedSampler
-
+import dask.array as da
 class DataModule:
     def __init__(self, batch_size, downsample_factor, transform):
         self.data = self.prepare_data()
@@ -25,8 +25,11 @@ class DataModule:
         self.downsample_factor = downsample_factor
         self.transform = transform
     
-    def prepare_data(self, year=2015, wavelength='171A'):
-        return load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(year), wavelength=wavelength)
+    def prepare_data(self, wavelength='171A'):
+        data = [load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(year), wavelength=wavelength) for year in range(2011, 2013)]
+        data = da.stack(data, axis=0)
+        return data
+
 
     
     def train_loader(self):
@@ -40,10 +43,10 @@ class DataModule:
         return DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, sampler=DistributedSampler(val_dataset))       
 
     def prepare_train_data(self):
-        return self.data[:100]
+        return self.data[::80]
 
     def prepare_val_data(self):
-        return self.data[100:110]
+        return self.data[::700]
             
 
     
