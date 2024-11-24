@@ -70,7 +70,7 @@ class Trainer:
         self.epoch = 0
     
     def fit(self, model, datamodule):
-        wandb.init(project="your_project_name")
+        wandb.init(project="your_project_name", group='DDP')
         self.model = model.to(self.device)
         if self.accelerator == 'ddp':
             self.ddp = DDP(self.model, device_ids=[self.device])
@@ -165,7 +165,7 @@ class Trainer:
         plt.savefig(os.path.join(self.log_path, f'imageO{self.epoch}.png'), bbox_inches='tight', pad_inches=0)
         plt.clf()
     
-    def setup_ddp():
+    def setup_ddp(self):
         torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
         init_process_group(backend='nccl')
             
