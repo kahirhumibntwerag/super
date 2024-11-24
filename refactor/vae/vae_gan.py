@@ -72,11 +72,10 @@ class Trainer:
     def fit(self, model, datamodule):
         self.model = model.to(self.device)
         if self.accelerator == 'ddp':
-            self.ddp = DDP(self.model, device_ids=[self.device])
-            self.model = self.ddp.module   
-        if self.device == 0:
-            wandb.init(project="your_project_name")
-            wandb.watch(self.model, log='all', log_freq=5)
+            self.model = DDP(self.model, device_ids=[self.device])
+        #if self.device == 0:
+        #    wandb.init(project="your_project_name")
+        #    wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
         self.val_loader = datamodule.val_loader()
@@ -89,8 +88,8 @@ class Trainer:
         
         if self.accelerator == 'ddp':
             destroy_process_group()
-        if self.device == 0:
-            wandb.finish()
+        #if self.device == 0:
+        #    wandb.finish()
 
     def fit_(self):
         self.model.train()
@@ -100,7 +99,7 @@ class Trainer:
                 self.training_step(data, opt_idx)
     
     def training_step(self, data, opt_idx):
-        loss = self.model.training_step(data, opt_idx)
+        loss = self.model.module.training_step(data, opt_idx)
         self.optimizers[opt_idx].zero_grad()
         loss.backward()
         self.optimizers[opt_idx].step()
@@ -110,7 +109,7 @@ class Trainer:
         self.model.eval()
         for data in self.val_loader:
             data = [t.to(self.device) for t in data ]
-            self.model.validation_step(data)
+            self.model.module.validation_step(data)
         self.log_images(data)
         
 
@@ -122,7 +121,7 @@ class Trainer:
 
         if self.device == 0 and self.epoch % self.log_every == 0:
             checkpoint = {
-                'model_state_dict': self.model.module.state_dict() if self.accelerator == 'ddp' else self.model.state_dict(),
+                'model_state_dict': self.model.module.state_dict(),
                 'optimizer_state_dict': [opt.state_dict() for opt in self.optimizers],
                 'epoch': self.epoch
             }
@@ -145,15 +144,15 @@ class Trainer:
         print(f"Loaded checkpoint from {self.checkpoint_path}, resuming at epoch {self.epoch}.")
 
     def print_losses(self):
-        for loss_name, loss in self.model.logs.items():
+        for loss_name, loss in self.model.module.logs.items():
             print(f'Epoch --> {self.epoch} | {loss_name} --> {sum(loss)/len(loss)}')
-            wandb.log({loss_name:sum(loss)/len(loss)})
-            self.model.logs[loss_name] = []
+            #wandb.log({loss_name:sum(loss)/len(loss)})
+            self.model.module.logs[loss_name] = []
     
     @torch.no_grad()
     def log_images(self, data):
         _, image = data
-        decoded, _, _ = self.model.vae(image)
+        decoded, _, _ = self.model.module.vae(image)
         decoded = inverse_rescalee(decoded)[0][0].detach().cpu().numpy()
         plt.imshow(decoded, cmap='afmhot')
         plt.axis('off')
