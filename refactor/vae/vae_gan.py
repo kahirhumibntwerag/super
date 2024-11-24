@@ -129,6 +129,9 @@ class Trainer:
             checkpoint_file = os.path.join(self.log_path, f'checkpoint{self.epoch}.pth')
             torch.save(checkpoint, checkpoint_file)
             print(f"Checkpoint saved at {checkpoint_file}")
+            artifact = wandb.Artifact('model-checkpoints', type='model')
+            artifact.add_file(checkpoint_file)
+            wandb.log_artifact(artifact)
 
     def load_checkpoint(self):
         if not self.checkpoint_path or not os.path.isfile(self.checkpoint_path):
