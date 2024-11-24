@@ -3,9 +3,9 @@ import os
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-from .test import VAE
-from .discriminator import Discriminator
-from .lpips  import VAELOSS
+from refactor.vae.test import VAE
+from refactor.vae.discriminator import Discriminator
+from refactor.vae.lpips  import VAELOSS
 from torch.utils.data import DataLoader
 from data.Dataset import Dataset
 from data.LoadData import load_single_aws_zarr, AWS_ZARR_ROOT, s3_connection

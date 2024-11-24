@@ -4,7 +4,7 @@ import zarr
 from typing import Union
 import dask.array as da
 from torchvision import transforms
-from .Dataset import Dataset
+from data.Dataset import Dataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
