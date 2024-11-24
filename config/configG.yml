@@ -1,9 +1,12 @@
 vae_gan:
   vae:
-    in_channels: 1
-    latent_channels: 1
-    channels: [64, 128, 256]
-    num_resblocks: 1 
+    channel_in: 1
+    ch: 64
+    blocks: (1, 2)
+    latent_channels: 3
+    num_res_blocks: 8
+    norm_type: "bn"
+    deep_model: False
     lr: 0.0001
   
   discriminator:
@@ -19,6 +22,8 @@ vae_gan:
 data:
   batch_size: 1
   downsample_factor: 0.25
+  year: 2015
+  wavelength: '171A'
 
 
 trainer:
