@@ -73,7 +73,9 @@ class Trainer:
         wandb.init(project="your_project_name")
         self.model = model.to(self.device)
         if self.accelerator == 'ddp':
-            self.model = DDP(self.model, device_ids=[self.device])
+            self.ddp = DDP(self.model, device_ids=[self.device])
+            self.model = self.ddp.module
+
         wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
