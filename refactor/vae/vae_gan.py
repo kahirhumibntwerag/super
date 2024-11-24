@@ -70,13 +70,13 @@ class Trainer:
         self.epoch = 0
     
     def fit(self, model, datamodule):
-        wandb.init(project="your_project_name", group='DDP')
         self.model = model.to(self.device)
         if self.accelerator == 'ddp':
             self.ddp = DDP(self.model, device_ids=[self.device])
-            self.model = self.ddp.module
-
-        wandb.watch(self.model, log='all', log_freq=5)
+            self.model = self.ddp.module   
+        if self.device == 0:
+            wandb.init(project="your_project_name")
+            wandb.watch(self.model, log='all', log_freq=5)
         self.optimizers = model.configure_optimizers()
         self.train_loader = datamodule.train_loader()
         self.val_loader = datamodule.val_loader()
@@ -89,7 +89,8 @@ class Trainer:
         
         if self.accelerator == 'ddp':
             destroy_process_group()
-        wandb.finish()
+        if self.device == 0:
+            wandb.finish()
 
     def fit_(self):
         self.model.train()
