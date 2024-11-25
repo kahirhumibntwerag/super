@@ -4,7 +4,7 @@ vae_gan:
     ch: 64
     blocks: (1, 2)
     latent_channels: 3
-    num_res_blocks: 8
+    num_res_blocks: 20
     norm_type: "bn"
     deep_model: False
     lr: 0.0001

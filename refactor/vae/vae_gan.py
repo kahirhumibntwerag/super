@@ -5,6 +5,7 @@ from refactor.vae.test import VAE
 from refactor.vae.discriminator import Discriminator
 from refactor.vae.lpips  import VAELOSS
 from refactor.vae.datamodule  import DataModule
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from torchvision import transforms
 import os
@@ -50,10 +51,10 @@ class VAEGAN(L.LightningModule):
       kl_loss = self.loss.kl_loss(mean, logvar)
       l2_loss = self.loss.l2_loss(hr, decoded)
       perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
-      self.log('train_g_loss', g_loss, on_epoch=True, prog_bar=True, logger=True)
-      self.log('train_kl_loss', kl_loss, on_epoch=True, prog_bar=True, logger=True)
-      self.log('train_l2_loss', l2_loss, on_epoch=True, prog_bar=True, logger=True)
-      self.log('train_perceptual_loss', perceptual_loss, on_epoch=True, prog_bar=True, logger=True)
+      self.log('train_g_loss', g_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+      self.log('train_kl_loss', kl_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+      self.log('train_l2_loss', l2_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+      self.log('train_perceptual_loss', perceptual_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
       perceptual_component = self.loss.perceptual_weight * perceptual_loss
       l2_component = self.loss.l2_weight * l2_loss
@@ -80,10 +81,10 @@ class VAEGAN(L.LightningModule):
         l2_loss = self.loss.l2_loss(hr, decoded)
         perceptual_loss = torch.mean(self.loss.perceptual_loss(hr, decoded))
         
-        self.log('val_g_loss', g_loss, prog_bar=True)
-        self.log('val_kl_loss', kl_loss, prog_bar=True)
-        self.log('val_l2_loss', l2_loss, prog_bar=True)
-        self.log('val_perceptual_loss', perceptual_loss, prog_bar=True)
+        self.log('val_g_loss', g_loss, prog_bar=True, sync_dist=True)
+        self.log('val_kl_loss', kl_loss, prog_bar=True, sync_dist=True)
+        self.log('val_l2_loss', l2_loss, prog_bar=True, sync_dist=True)
+        self.log('val_perceptual_loss', perceptual_loss, prog_bar=True, sync_dist=True)
 
         if batch_idx % 100 == 0:
             fig, ax = plt.subplots()
@@ -137,11 +138,26 @@ def rescale(images):
     return rescaled_images
 if __name__ == '__main__':
     logger = WandbLogger(project='your_project_name')
+    checkpoint_callback = ModelCheckpoint(
+    monitor='val_l2_loss',           
+    dirpath='refactor/',       
+    filename='best-checkpoint',   
+    save_top_k=1,                 
+    mode='min'                    
+)
     config = load_config(os.path.join('config', 'configG.yml'))
     transform = transforms.Compose([transforms.ToTensor(), rescalee])
     datamodule = DataModule(**config['data'], transform=transform )
     datamodule.prepare_data()
     #vae = VAE(**config['vae_gan']['vae'])
     gan = VAEGAN(**config['vae_gan'])
-    trainer = L.Trainer(max_epochs=30, accelerator="gpu", devices="auto", strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"), logger=logger)
+    trainer = L.Trainer(max_epochs=3,
+                        accelerator="gpu",
+                        devices="auto",
+                        strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"),
+                        logger=logger,
+                        callbacks=checkpoint_callback)
     trainer.fit(gan, datamodule)
+    artifact = wandb.Artifact('best_model', type='model')
+    artifact.add_file('checkpoints/best-checkpoint.ckpt')
+    wandb.log_artifact(artifact)

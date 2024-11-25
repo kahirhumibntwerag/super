@@ -22,7 +22,7 @@ class DataModule(L.LightningDataModule):
         self.data = da.concatenate(self.data, axis=0)
     def setup(self, stage=None):
         if stage == "fit" or stage is None:
-            self.train_dataset = Dataset(numpy_data=self.data[::8000].compute(), downsample_factor=self.downsample_factor, transform=self.transform)
+            self.train_dataset = Dataset(numpy_data=self.data[::800].compute(), downsample_factor=self.downsample_factor, transform=self.transform)
             self.val_dataset = Dataset(numpy_data=self.data[::7000].compute(), downsample_factor=self.downsample_factor, transform=self.transform)
 
         # Assign test dataset for use in dataloader(s)

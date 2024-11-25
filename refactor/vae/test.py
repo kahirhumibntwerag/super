@@ -205,7 +205,7 @@ class VAE(nn.Module):
     """
     VAE network, uses the above encoder and decoder blocks
     """
-    def __init__(self, channel_in=1, ch=64, blocks=(1, 2), latent_channels=3, num_res_blocks=8, norm_type="bn",
+    def __init__(self, channel_in=1, ch=64, blocks=(1, 2), latent_channels=3, num_res_blocks=20, norm_type="bn",
                  deep_model=False, lr=0.0001):
         super(VAE, self).__init__()
         """Res VAE Network
