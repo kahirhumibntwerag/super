@@ -143,5 +143,5 @@ if __name__ == '__main__':
     datamodule.prepare_data()
     #vae = VAE(**config['vae_gan']['vae'])
     gan = VAEGAN(**config['vae_gan'])
-    trainer = L.Trainer(max_epochs=30, accelerator="gpu", devices="auto", strategy= strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"), logger=logger)
+    trainer = L.Trainer(max_epochs=30, accelerator="gpu", devices="auto", strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"), logger=logger)
     trainer.fit(gan, datamodule)

@@ -27,7 +27,7 @@ class Dataset(Dataset):
 
     def __getitem__(self, idx):        
         
-        hr = self.numpy_data[idx].compute()
+        hr = self.numpy_data[idx]
         hight, width = hr.shape
 
         
