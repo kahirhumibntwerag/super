@@ -20,13 +20,12 @@ class DataModule(L.LightningDataModule):
         print("Connecting to S3 and downloading metadata...")
         self.data = load_single_aws_zarr(
             path_to_zarr=AWS_ZARR_ROOT+str(self.year),
-            cache_max_single_size=self.cache_max_single_size,
             wavelength=self.wavelength
         )
 
     def setup(self, stage=None):
         if stage == "fit" or stage is None:
-            self.train_dataset = Dataset(numpy_data=self.data[::80], downsample_factor=self.downsample_factor, transform=self.transform)
+            self.train_dataset = Dataset(numpy_data=self.data[::800], downsample_factor=self.downsample_factor, transform=self.transform)
             self.val_dataset = Dataset(numpy_data=self.data[::700], downsample_factor=self.downsample_factor, transform=self.transform)
 
         # Assign test dataset for use in dataloader(s)

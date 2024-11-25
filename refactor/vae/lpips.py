@@ -172,7 +172,7 @@ def spatial_average(x, keepdim=True):
 class VAELOSS(nn.Module):
     def __init__(self, perceptual_weight=1.0, l2_weight=0.01, adversarial_weight=0.001, kl_weight=0.000001):
         super().__init__()
-        self.lpips = PerceptualLoss()
+        self.lpips = LPIPS()
         self.perceptual_weight = perceptual_weight
         self.kl_weight = kl_weight
         self.adversarial_weight = adversarial_weight

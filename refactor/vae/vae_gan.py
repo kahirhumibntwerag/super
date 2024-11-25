@@ -7,79 +7,107 @@ from refactor.vae.lpips  import VAELOSS
 from refactor.vae.datamodule  import DataModule
 
 from torchvision import transforms
-import wandb
 import os
 import yaml
 import matplotlib.pyplot as plt
 from torch.nn.parallel import DistributedDataParallel as DDP
 import lightning as L
 
-
-
+import io
+import matplotlib.pyplot as plt
+import wandb
+import numpy as np
+from PIL import Image
       
-
+from lightning.pytorch.loggers import WandbLogger
 
 
 class VAEGAN(L.LightningModule):
     def __init__(self, **configs):
         super().__init__()
-        
-        self.vae = VAE(**configs['vae'])
+        self.automatic_optimization = False
+        self.vae = VAE()
         self.discriminator = Discriminator(**configs['discriminator'])
         self.loss = VAELOSS(**configs['loss'])
 
-    def training_step(self, batch, optimizer_idx):
+    def training_step(self, batch, batch_idx):
+      opt_g, opt_disc = self.optimizers()
+      
       _, hr = batch
       decoded, mean, logvar = self.vae(hr)
-      
-      if optimizer_idx == 0:
+      ###### discriminator #######
+      logits_real = self.discriminator(hr.contiguous().detach())      
+      logits_fake = self.discriminator(decoded.contiguous().detach())      
+      d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
+      self.log('d_loss', d_loss, prog_bar=True, logger=True)
+      ##### generator ######
+      opt_disc.zero_grad()
+      self.manual_backward(d_loss)
+      opt_disc.step()
 
-          logits_fake = self.discriminator(decoded)
-          g_loss = self.loss.g_loss(logits_fake)
-          kl_loss = self.loss.kl_loss(mean, logvar)
-          l2_loss = self.loss.l2_loss(hr, decoded)
-          perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
-          self.log('train_g_loss', g_loss)
-          self.log('train_kl_loss', kl_loss)
-          self.log('train_l2_loss', l2_loss)
-          self.log('train_perceptual_loss', perceptual_loss)
-
-          perceptual_component = self.loss.perceptual_weight * perceptual_loss
-          l2_component = self.loss.l2_weight * l2_loss
-          adversarial_component = self.loss.adversarial_weight * g_loss
-          kl_component = self.loss.kl_weight * kl_loss
-
-          loss = perceptual_component + l2_component + adversarial_component + kl_component
-          return loss 
-      
-      if optimizer_idx == 1:
-            logits_real = self.discriminator(hr.contiguous().detach())      
-            logits_fake = self.discriminator(decoded.contiguous().detach())      
-            d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
-            self.log('d_loss', d_loss)
-            return d_loss
-      
-    def validation_step(self, x):
-      _, hr = x
-      decoded, mean, logvar = self.vae(hr)
-     
       logits_fake = self.discriminator(decoded)
-      
       g_loss = self.loss.g_loss(logits_fake)
       kl_loss = self.loss.kl_loss(mean, logvar)
       l2_loss = self.loss.l2_loss(hr, decoded)
-      perceptual_loss = torch.mean(self.loss.perceptual_loss(hr, decoded))
+      perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
+      self.log('train_g_loss', g_loss, on_epoch=True, prog_bar=True, logger=True)
+      self.log('train_kl_loss', kl_loss, on_epoch=True, prog_bar=True, logger=True)
+      self.log('train_l2_loss', l2_loss, on_epoch=True, prog_bar=True, logger=True)
+      self.log('train_perceptual_loss', perceptual_loss, on_epoch=True, prog_bar=True, logger=True)
 
-      self.log('val_g_loss', g_loss)
-      self.log('val_kl_loss', kl_loss)
-      self.log('val_l2_loss', l2_loss)
-      self.log('val_perceptual_loss', perceptual_loss)
-  
-    
+      perceptual_component = self.loss.perceptual_weight * perceptual_loss
+      l2_component = self.loss.l2_weight * l2_loss
+      adversarial_component = self.loss.adversarial_weight * g_loss
+      kl_component = self.loss.kl_weight * kl_loss
+
+      loss = perceptual_component + l2_component + adversarial_component + kl_component
+
+
+      opt_g.zero_grad()
+      self.manual_backward(loss)
+      opt_g.step()
+
+
+
+
+    def validation_step(self, x, batch_idx):
+        _, hr = x
+        decoded, mean, logvar = self.vae(hr)
+        logits_fake = self.discriminator(decoded)
+        
+        g_loss = self.loss.g_loss(logits_fake)
+        kl_loss = self.loss.kl_loss(mean, logvar)
+        l2_loss = self.loss.l2_loss(hr, decoded)
+        perceptual_loss = torch.mean(self.loss.perceptual_loss(hr, decoded))
+        
+        self.log('val_g_loss', g_loss, prog_bar=True)
+        self.log('val_kl_loss', kl_loss, prog_bar=True)
+        self.log('val_l2_loss', l2_loss, prog_bar=True)
+        self.log('val_perceptual_loss', perceptual_loss, prog_bar=True)
+
+        if batch_idx % 100 == 0:
+            fig, ax = plt.subplots()
+            ax.imshow(decoded[0].cpu().numpy().squeeze(), cmap='afmhot')
+            ax.axis('off')
+            
+            # Save the figure to a buffer in RGB format
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+            buf.seek(0)
+
+            # Convert buffer to a NumPy array
+            image = Image.open(buf)
+            image_np = np.array(image)
+
+            # Log the image to Wandb
+            wandb_image = wandb.Image(image_np, caption=f"Validation Image Batch {batch_idx} with afmhot colormap")
+            self.logger.experiment.log({f"val_image_afmhot_batch_{batch_idx}": wandb_image})
+
     def configure_optimizers(self):
         disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.discriminator.lr, betas=(0.5, 0.9)) 
         vae_opt = torch.optim.Adam(self.vae.parameters(), lr=self.vae.lr, betas=(0.5, 0.9)) 
-        return vae_opt, disc_opt
+        return [vae_opt, disc_opt]
 
 
 def load_config(config_path):
@@ -108,10 +136,10 @@ def rescale(images):
 
     return rescaled_images
 if __name__ == '__main__':
+    logger = WandbLogger(project='your_project_name')
     config = load_config(os.path.join('config', 'configG.yml'))
     transform = transforms.Compose([transforms.ToTensor(), rescalee])
     datamodule = DataModule(**config['data'], transform=transform )
     #vae = VAE(**config['vae_gan']['vae'])
     gan = VAEGAN(**config['vae_gan'])
-    trainer = L.Trainer(max_epochs=30)
-    trainer.fit(gan, datamodule)
+    trainer = L.Trainer(max_epochs=30, accelerator="gpu", devices="auto", strategy="ddp", logger=logger)
