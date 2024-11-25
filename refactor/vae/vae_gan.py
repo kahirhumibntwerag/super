@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image
       
 from lightning.pytorch.loggers import WandbLogger
-
+from lightning.pytorch.strategies import DDPStrategy
 
 class VAEGAN(L.LightningModule):
     def __init__(self, **configs):
@@ -140,7 +140,8 @@ if __name__ == '__main__':
     config = load_config(os.path.join('config', 'configG.yml'))
     transform = transforms.Compose([transforms.ToTensor(), rescalee])
     datamodule = DataModule(**config['data'], transform=transform )
+    datamodule.prepare_data()
     #vae = VAE(**config['vae_gan']['vae'])
     gan = VAEGAN(**config['vae_gan'])
-    trainer = L.Trainer(max_epochs=30, accelerator="gpu", devices="auto", strategy="ddp", logger=logger)
+    trainer = L.Trainer(max_epochs=30, accelerator="gpu", devices="auto", strategy= strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"), logger=logger)
     trainer.fit(gan, datamodule)
