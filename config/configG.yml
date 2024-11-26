@@ -20,7 +20,7 @@ vae_gan:
     adversarial_weight: 0.001
     kl_weight: 0.000001
 data:
-  batch_size: 1
+  batch_size: 2
   downsample_factor: 0.25
   year: 2015
   wavelength: '171A'

@@ -137,7 +137,6 @@ def rescale(images):
 
     return rescaled_images
 if __name__ == '__main__':
-    logger = WandbLogger(project='your_project_name')
     checkpoint_callback = ModelCheckpoint(
     monitor='val_l2_loss',           
     dirpath='refactor/',       
@@ -146,18 +145,21 @@ if __name__ == '__main__':
     mode='min'                    
 )
     config = load_config(os.path.join('config', 'configG.yml'))
+    logger = WandbLogger(project='your_project_name', log_model=True,config=config)
+
     transform = transforms.Compose([transforms.ToTensor(), rescalee])
     datamodule = DataModule(**config['data'], transform=transform )
     datamodule.prepare_data()
     #vae = VAE(**config['vae_gan']['vae'])
     gan = VAEGAN(**config['vae_gan'])
+    # Assuming 'model' is your LightningModule instance
+    logger.watch(gan, log='all')
+
     trainer = L.Trainer(max_epochs=3,
                         accelerator="gpu",
                         devices="auto",
                         strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"),
                         logger=logger,
-                        callbacks=checkpoint_callback)
+                        callbacks=checkpoint_callback
+                        )
     trainer.fit(gan, datamodule)
-    artifact = wandb.Artifact('best_model', type='model')
-    artifact.add_file('checkpoints/best-checkpoint.ckpt')
-    wandb.log_artifact(artifact)
