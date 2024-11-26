@@ -86,7 +86,7 @@ class VAEGAN(L.LightningModule):
         self.log('val_l2_loss', l2_loss, prog_bar=True, sync_dist=True)
         self.log('val_perceptual_loss', perceptual_loss, prog_bar=True, sync_dist=True)
 
-        if batch_idx % 100 == 0:
+        if batch_idx == 0:
             fig, ax = plt.subplots()
             ax.imshow(decoded[0].cpu().numpy().squeeze(), cmap='afmhot')
             ax.axis('off')
