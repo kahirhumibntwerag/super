@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 class Dataset(Dataset):
-    def __init__(self, numpy_data, downsample_factor=1/4, transform=None):
+    def __init__(self, tensors, downsample_factor=1/4, transform=None):
         """
         Args:
             numpy_data (numpy.array): Numpy array of shape (num_images, height, width).
@@ -18,16 +18,16 @@ class Dataset(Dataset):
             val_size (float): Proportion of the test split to include in the validation set.
             random_state (int): Random state for reproducibility.
         """
-        self.numpy_data = numpy_data
+        self.numpy_data = tensors
         self.downsample_factor = downsample_factor
         self.transform = transform
 
     def __len__(self):
-        return len(self.numpy_data)
+        return len(self.tensors)
 
     def __getitem__(self, idx):        
         
-        hr = self.numpy_data[idx]
+        hr = self.tensors[idx]
         hight, width = hr.shape
 
         
