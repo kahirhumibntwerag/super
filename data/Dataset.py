@@ -18,7 +18,7 @@ class Dataset(Dataset):
             val_size (float): Proportion of the test split to include in the validation set.
             random_state (int): Random state for reproducibility.
         """
-        self.numpy_data = tensors
+        self.tensors = tensors
         self.downsample_factor = downsample_factor
         self.transform = transform
 
