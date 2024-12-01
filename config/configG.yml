@@ -26,8 +26,6 @@ data:
   s3_key_train: 'dataset/train_dataset.pt'
   s3_key_val: 'dataset/val_dataset.pt'
   s3_key_test: 'dataset/test_dataset.pt'
-  aws_access_key: 'AKIAUMYCIUFXOXQ5VCGX'
-  aws_secret_key: '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'
 
 
 trainer:

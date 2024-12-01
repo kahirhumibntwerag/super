@@ -28,7 +28,7 @@ def load_tensor_from_s3(bucket_name, s3_key, aws_access_key=None, aws_secret_key
         return None
 
 class DataModule(L.LightningDataModule):
-    def __init__(self, bucket_name, s3_key_train, s3_key_val, s3_key_test, aws_access_key, aws_secret_key, batch_size=4, downsample_factor=1/4, transform=None):
+    def __init__(self, bucket_name, s3_key_train, s3_key_val, s3_key_test, aws_access_key=None, aws_secret_key=None, batch_size=4, downsample_factor=1/4, transform=None):
         super().__init__()
         self.batch_size = batch_size
         self.downsample_factor = downsample_factor
