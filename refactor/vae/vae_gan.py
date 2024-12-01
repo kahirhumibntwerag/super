@@ -144,7 +144,11 @@ if __name__ == '__main__':
     logger = WandbLogger(**config['logger'], config=config)
 
     transform = transforms.Compose([rescalee])
-    datamodule = DataModule(**config['data'], transform=transform )
+    datamodule = DataModule(**config['data'],
+                            aws_access_key=os.getenv('AWS_ACCESS_KEY_ID'),
+                            aws_secret_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                            transform=transform
+                            )
     
     gan = VAEGAN(**config['vae_gan'])
 
