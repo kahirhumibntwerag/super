@@ -28,7 +28,7 @@ def load_tensor_from_s3(bucket_name, s3_key, aws_access_key=None, aws_secret_key
         return None
 
 class DataModule(L.LightningDataModule):
-    def __init__(self, s3_key_train, s3_key_val, s3_key_test, batch_size=4, downsample_factor=1/4, transform=None):
+    def __init__(self, bucket_name, s3_key_train, s3_key_val, s3_key_test, aws_access_key, aws_secret_key, batch_size=4, downsample_factor=1/4, transform=None):
         super().__init__()
         self.batch_size = batch_size
         self.downsample_factor = downsample_factor
@@ -36,14 +36,16 @@ class DataModule(L.LightningDataModule):
         self.s3_key_train = s3_key_train
         self.s3_key_val = s3_key_val
         self.s3_key_test = s3_key_test
-
+        self.bucket_name = bucket_name
+        self.aws_access_key = aws_access_key
+        self.aws_secret_key = aws_secret_key
 
 
     def prepare_data(self):
         print("Connecting to S3 and downloading metadata...")
-        self.train_data = load_tensor_from_s3(bucket_name=self.bucket, s3_key=self.s3_key_train, **kwargs)
-        self.val_data = load_tensor_from_s3(bucket_name=self.bucket, s3_key=self.s3_key_val, **kwargs)
-        self.test_data = load_tensor_from_s3(bucket_name=self.bucket, s3_key=self.s3_key_val_test, **kwargs)
+        self.train_data = load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_train, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key)
+        self.val_data = load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_val, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key)
+        self.test_data = load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_test, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key)
     
     def setup(self, stage=None):
         if stage == "fit" or stage is None:

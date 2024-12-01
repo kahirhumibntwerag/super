@@ -117,13 +117,13 @@ class Encoder(nn.Module):
     Encoder block
     """
 
-    def __init__(self, channels, ch=64, blocks=(1, 2, 4, 8), latent_channels=256, num_res_blocks=1, norm_type="bn",
+    def __init__(self, channels, ch=64, blocks=[1, 2, 4, 8], latent_channels=256, num_res_blocks=1, norm_type="bn",
                  deep_model=False):
         super(Encoder, self).__init__()
         self.conv_in = nn.Conv2d(channels, blocks[0] * ch, 3, 1, 1)
 
-        widths_in = list(blocks)
-        widths_out = list(blocks[1:]) + [2 * blocks[-1]]
+        widths_in = blocks
+        widths_out = blocks[1:] + [2 * blocks[-1]]
 
         self.layer_blocks = nn.ModuleList([])
         for w_in, w_out in zip(widths_in, widths_out):
@@ -170,11 +170,11 @@ class Decoder(nn.Module):
     Built to be a mirror of the encoder block
     """
 
-    def __init__(self, channels, ch=64, blocks=(1, 2, 4, 8), latent_channels=256, num_res_blocks=1, norm_type="bn",
+    def __init__(self, channels, ch=64, blocks=[1, 2, 4, 8], latent_channels=256, num_res_blocks=1, norm_type="bn",
                  deep_model=False):
         super(Decoder, self).__init__()
-        widths_out = list(blocks)[::-1]
-        widths_in = (list(blocks[1:]) + [2 * blocks[-1]])[::-1]
+        widths_out = blocks[::-1]
+        widths_in = (blocks[1:] + [2 * blocks[-1]])[::-1]
 
         self.conv_in = nn.Conv2d(latent_channels, widths_in[0] * ch, 1, 1)
 
@@ -205,7 +205,7 @@ class VAE(nn.Module):
     """
     VAE network, uses the above encoder and decoder blocks
     """
-    def __init__(self, channel_in=1, ch=64, blocks=(1, 2), latent_channels=3, num_res_blocks=20, norm_type="bn",
+    def __init__(self, channel_in=1, ch=64, blocks=[1, 2], latent_channels=3, num_res_blocks=8, norm_type="gn",
                  deep_model=False, lr=0.0001):
         super(VAE, self).__init__()
         """Res VAE Network

@@ -2,10 +2,10 @@ vae_gan:
   vae:
     channel_in: 1
     ch: 64
-    blocks: (1, 2)
+    blocks: [1, 2]
     latent_channels: 3
-    num_res_blocks: 20
-    norm_type: "bn"
+    num_res_blocks: 8
+    norm_type: "gn"
     deep_model: False
     lr: 0.0001
   
@@ -22,14 +22,32 @@ vae_gan:
 data:
   batch_size: 2
   downsample_factor: 0.25
-  year: 2015
-  wavelength: '171A'
+  bucket_name: 'sdo-subdataset'
+  s3_key_train: 'dataset/train_dataset.pt'
+  s3_key_val: 'dataset/val_dataset.pt'
+  s3_key_test: 'dataset/test_dataset.pt'
+  aws_access_key: 'AKIAUMYCIUFXOXQ5VCGX'
+  aws_secret_key: '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'
 
 
 trainer:
-  max_epochs: 100
-  device: 'cuda'
-  log_every: 10
-  checkpoint_path: ''
-  log_path: 'refactor'
-  accelerator: 'ddp'
+  max_epochs: 3
+  accelerator: "gpu"
+  devices: "auto"
+  strategy: 'ddp'
+  precision: 16
+
+callbacks:
+  checkpoint:
+      dirpath: 'refactor/'               
+      filename: 'epoch-{epoch:02d}',     
+      save_top_k: -1          
+      every_n_epochs: 5 
+
+logger:
+  project: 'your_project_name'
+  log_model: True
+
+
+
+

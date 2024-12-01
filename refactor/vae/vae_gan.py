@@ -27,7 +27,7 @@ class VAEGAN(L.LightningModule):
     def __init__(self, **configs):
         super().__init__()
         self.automatic_optimization = False
-        self.vae = VAE()
+        self.vae = VAE(**configs['vae'])
         self.discriminator = Discriminator(**configs['discriminator'])
         self.loss = VAELOSS(**configs['loss'])
 
@@ -137,29 +137,22 @@ def rescale(images):
 
     return rescaled_images
 if __name__ == '__main__':
-    checkpoint_callback = ModelCheckpoint(
-    monitor='val_l2_loss',           
-    dirpath='refactor/',       
-    filename='best-checkpoint',   
-    save_top_k=1,                 
-    mode='min'                    
-)
     config = load_config(os.path.join('config', 'configG.yml'))
-    logger = WandbLogger(project='your_project_name', log_model=True,config=config)
+    
+    checkpoint_callback = ModelCheckpoint(**config['callbacks']['checkpoint'])
 
-    transform = transforms.Compose([transforms.ToTensor(), rescalee])
+    logger = WandbLogger(**config['logger'], config=config)
+
+    transform = transforms.Compose([rescalee])
     datamodule = DataModule(**config['data'], transform=transform )
-    datamodule.prepare_data()
-    #vae = VAE(**config['vae_gan']['vae'])
+    
     gan = VAEGAN(**config['vae_gan'])
-    # Assuming 'model' is your LightningModule instance
+
     logger.watch(gan, log='all')
 
-    trainer = L.Trainer(max_epochs=3,
-                        accelerator="gpu",
-                        devices="auto",
-                        strategy=DDPStrategy(find_unused_parameters=True, process_group_backend="gloo"),
-                        logger=logger,
-                        callbacks=checkpoint_callback
+    trainer = L.Trainer(logger=logger,
+                        callbacks=checkpoint_callback,
+                        **config['trainer']
                         )
     trainer.fit(gan, datamodule)
+    trainer.test(gan, datamodule)
