@@ -68,8 +68,24 @@ class VAEGAN(L.LightningModule):
       self.manual_backward(loss)
       opt_g.step()
 
+      if batch_idx == 0:
+            fig, ax = plt.subplots()
+            ax.imshow(decoded[0].detach().cpu().numpy().squeeze(), cmap='afmhot')
+            ax.axis('off')
 
+            # Save the figure to a buffer in RGB format
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+            buf.seek(0)
 
+            # Convert buffer to a NumPy array
+            image = Image.open(buf)
+            image_np = np.array(image)
+
+            # Log the image to Wandb
+            wandb_image = wandb.Image(image_np, caption=f"train Image Batch {batch_idx} with afmhot colormap")
+            self.logger.experiment.log({f"train_image_afmhot_batch_{batch_idx}": wandb_image})
 
     def validation_step(self, x, batch_idx):
         _, hr = x
@@ -158,5 +174,5 @@ if __name__ == '__main__':
                         callbacks=checkpoint_callback,
                         **config['trainer']
                         )
-    trainer.fit(gan, datamodule)
+    trainer.fit(gan, datamodule, ckpt_path='drive/MyDrive/epoch-epoch=349.ckpt')
     trainer.test(gan, datamodule)

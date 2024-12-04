@@ -77,6 +77,8 @@ def rescalee(images):
     images_normalized = images_log / max_value
     return images_normalized
 if __name__ == '__main__':
-    data = load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(2015), wavelength='171A')
-    plt.imshow(rescalee(torch.from_numpy(data[1009].compute())).numpy(), cmap='afmhot')
+    data = load_single_aws_zarr(path_to_zarr=AWS_ZARR_ROOT + str(2019), wavelength='171A')
+    image = data[40].compute()
+    print(image.mean())
+    plt.imshow(torch.from_numpy(image).numpy(), cmap='afmhot')
     plt.show()

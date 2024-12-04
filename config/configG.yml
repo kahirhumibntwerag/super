@@ -29,7 +29,7 @@ data:
 
 
 trainer:
-  max_epochs: 3
+  max_epochs: 500
   accelerator: "gpu"
   devices: "auto"
   strategy: 'ddp_find_unused_parameters_true'
@@ -37,14 +37,13 @@ trainer:
 
 callbacks:
   checkpoint:
-      dirpath: 'refactor/'               
+      dirpath: 'drive/MyDrive'               
       filename: 'epoch-{epoch:02d}'  
       save_top_k: -1          
       every_n_epochs: 5 
 
 logger:
   project: 'your_project_name'
-  log_model: True
 
 
 
