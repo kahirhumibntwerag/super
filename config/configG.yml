@@ -33,7 +33,7 @@ trainer:
   accelerator: "gpu"
   devices: "auto"
   strategy: 'ddp_find_unused_parameters_true'
-  precision: 16
+  precision: '16-mixed'
 
 callbacks:
   checkpoint:
