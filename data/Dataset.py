@@ -29,6 +29,8 @@ class Dataset(Dataset):
         
         hr = self.tensors[idx]
         hight, width = hr.shape
+        if len(hr.shape) == 2:
+          hr = hr.unsqueeze(0)
 
         
         if self.transform:
