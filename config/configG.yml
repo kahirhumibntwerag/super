@@ -13,6 +13,10 @@ vae_gan:
     in_channels: 1
     channel_list: [64, 128, 256]
     lr: 0.000001
+    disc_start: 3000
+    disc_factor: 1.0
+    disc_weight: 1.0
+    logvar_init: 0.0
   
   loss:
     perceptual_weight: 1.0

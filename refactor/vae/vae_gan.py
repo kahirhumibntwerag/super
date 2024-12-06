@@ -36,10 +36,11 @@ class VAEGAN(L.LightningModule):
       
       _, hr = batch
       decoded, mean, logvar = self.vae(hr)
+      disc_factor = self.adopt_weight(self.discriminator.disc_factor, self.global_step, threshold=self.discriminator.iter_start)
       ###### discriminator #######
       logits_real = self.discriminator(hr.contiguous().detach())      
       logits_fake = self.discriminator(decoded.contiguous().detach())      
-      d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
+      d_loss = disc_factor*self.loss.adversarial_loss(logits_real, logits_fake)
       self.log('d_loss', d_loss, prog_bar=True, logger=True)
       ##### generator ######
       opt_disc.zero_grad()
@@ -51,6 +52,7 @@ class VAEGAN(L.LightningModule):
       kl_loss = self.loss.kl_loss(mean, logvar)
       l2_loss = self.loss.l2_loss(hr, decoded)
       perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
+      
       self.log('train_g_loss', g_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
       self.log('train_kl_loss', kl_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
       self.log('train_l2_loss', l2_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
@@ -58,10 +60,12 @@ class VAEGAN(L.LightningModule):
 
       perceptual_component = self.loss.perceptual_weight * perceptual_loss
       l2_component = self.loss.l2_weight * l2_loss
+      rec_loss = l2_component + perceptual_component
+      nll_loss = rec_loss / torch.exp(self.discriminator.logvar) + self.discriminator.logvar 
       adversarial_component = self.loss.adversarial_weight * g_loss
       kl_component = self.loss.kl_weight * kl_loss
 
-      loss = perceptual_component + l2_component + adversarial_component + kl_component
+      loss = nll_loss + disc_factor*adversarial_component + kl_component
 
 
       opt_g.zero_grad()
@@ -125,6 +129,12 @@ class VAEGAN(L.LightningModule):
         disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.discriminator.lr, betas=(0.5, 0.9)) 
         vae_opt = torch.optim.Adam(self.vae.parameters(), lr=self.vae.lr, betas=(0.5, 0.9)) 
         return [vae_opt, disc_opt]
+    
+    def adopt_weight(weight, global_step, threshold=0, value=0.):
+        if global_step < threshold:
+            weight = value
+        return weight
+
 
 
 def load_config(config_path):

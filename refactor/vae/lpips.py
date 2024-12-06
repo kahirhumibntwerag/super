@@ -170,9 +170,14 @@ def spatial_average(x, keepdim=True):
 
 
 class VAELOSS(nn.Module):
-    def __init__(self, perceptual_weight=1.0, l2_weight=0.01, adversarial_weight=0.001, kl_weight=0.000001):
+    def __init__(self,
+                perceptual_weight=1.0,
+                l2_weight=0.01,
+                adversarial_weight=0.001,
+                kl_weight=0.000001
+                ):
         super().__init__()
-        self.lpips = LPIPS()
+        self.lpips = LPIPS().eval()
         self.perceptual_weight = perceptual_weight
         self.kl_weight = kl_weight
         self.adversarial_weight = adversarial_weight
@@ -196,6 +201,19 @@ class VAELOSS(nn.Module):
     
     def g_loss(self, fake_logits):
         return -torch.mean(fake_logits)
+    
+    def calculate_adaptive_weight(self, nll_loss, g_loss, last_layer=None):
+        if last_layer is not None:
+            nll_grads = torch.autograd.grad(nll_loss, last_layer, retain_graph=True)[0]
+            g_grads = torch.autograd.grad(g_loss, last_layer, retain_graph=True)[0]
+        else:
+            nll_grads = torch.autograd.grad(nll_loss, self.last_layer[0], retain_graph=True)[0]
+            g_grads = torch.autograd.grad(g_loss, self.last_layer[0], retain_graph=True)[0]
+
+        d_weight = torch.norm(nll_grads) / (torch.norm(g_grads) + 1e-4)
+        d_weight = torch.clamp(d_weight, 0.0, 1e4).detach()
+        d_weight = d_weight * self.discriminator_weight
+        return d_weight
 
 class PerceptualLoss(nn.Module):
     def __init__(self):
