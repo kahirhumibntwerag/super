@@ -36,7 +36,6 @@ class VAEGAN(L.LightningModule):
       
       _, hr = batch
       decoded, mean, logvar = self.vae(hr)
-      disc_factor = self.adopt_weight(self.discriminator.disc_factor, self.global_step, threshold=self.discriminator.iter_start)
       ###### discriminator #######
       logits_real = self.discriminator(hr.contiguous().detach())      
       logits_fake = self.discriminator(decoded.contiguous().detach())      
@@ -63,7 +62,7 @@ class VAEGAN(L.LightningModule):
       adversarial_component = self.loss.adversarial_weight * g_loss
       kl_component = self.loss.kl_weight * kl_loss
 
-      loss = nll_loss + disc_factor*adversarial_component + kl_component
+      loss = perceptual_component + l2_component + adversarial_component + kl_component
 
 
       opt_g.zero_grad()
@@ -167,12 +166,7 @@ if __name__ == '__main__':
 
     logger = WandbLogger(**config['logger'], config=config)
 
-    transform = transforms.Compose([rescalee,
-    transforms.RandomRotation(degrees=(-30, 30)),  # Rotate between -15 to 15 degrees
-    transforms.RandomHorizontalFlip(p=0.5),  # 50% chance to flip horizontally
-    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Randomly translate within 10% of image size
-    transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0)),  # Apply Gaussian blur with random sigma
-])
+    transform = transforms.Compose([rescalee])
     datamodule = DataModule(**config['data'],
                             aws_access_key=os.getenv('AWS_ACCESS_KEY_ID'),
                             aws_secret_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
