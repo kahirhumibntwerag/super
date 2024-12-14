@@ -126,12 +126,6 @@ class VAEGAN(L.LightningModule):
         disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.discriminator.lr, betas=(0.5, 0.9)) 
         vae_opt = torch.optim.Adam(self.vae.parameters(), lr=self.vae.lr, betas=(0.5, 0.9)) 
         return [vae_opt, disc_opt]
-    
-    def adopt_weight(weight, global_step, threshold=0, value=0.):
-        if global_step < threshold:
-            weight = value
-        return weight
-
 
 
 def load_config(config_path):
