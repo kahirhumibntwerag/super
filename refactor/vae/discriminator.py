@@ -2,14 +2,7 @@ import torch
 import torch.nn as nn
 
 class Discriminator(nn.Module):
-    def __init__(self,
-                logvar_init=0.0,
-                in_channels=3,
-                channel_list=[64, 128, 256],
-                lr=1e-6, 
-                disc_start=0,
-                disc_factor=1.0,
-                disc_weight=1.0):
+    def __init__(self, in_channels=3, channel_list=[64, 128, 256], lr=1e-6):
 
         super().__init__()
         self.lr = lr
@@ -41,16 +34,9 @@ class Discriminator(nn.Module):
         
         self.model = nn.Sequential(*layers)
 
-
-
-        self.logvar = nn.Parameter(torch.ones(size=()) * logvar_init)     
-        self.iter_start = disc_start
-        self.disc_factor = disc_factor
-        self.discriminator_weight = disc_weight
-
     def forward(self, input_tensor):
         return self.model(input_tensor)
-
+    
     def flops_and_parameters(self, input_shape):
         from ptflops import get_model_complexity_info
         flops, parameters = get_model_complexity_info(self, input_shape, as_strings=True, print_per_layer_stat=False)

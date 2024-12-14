@@ -36,11 +36,11 @@ class VAEGAN(L.LightningModule):
       
       _, hr = batch
       decoded, mean, logvar = self.vae(hr)
-      disc_factor = self.adopt_weight(self.discriminator.disc_factor, self.global_step//2, threshold=self.discriminator.iter_start)
+      disc_factor = self.adopt_weight(self.discriminator.disc_factor, self.global_step, threshold=self.discriminator.iter_start)
       ###### discriminator #######
       logits_real = self.discriminator(hr.contiguous().detach())      
       logits_fake = self.discriminator(decoded.contiguous().detach())      
-      d_loss = disc_factor*self.loss.adversarial_loss(logits_real, logits_fake)
+      d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
       self.log('d_loss', d_loss, prog_bar=True, logger=True)
       
       opt_disc.zero_grad()
@@ -53,7 +53,6 @@ class VAEGAN(L.LightningModule):
       kl_loss = self.loss.kl_loss(mean, logvar)
       l2_loss = self.loss.l2_loss(hr, decoded)
       perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
-      
       self.log('train_g_loss', g_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
       self.log('train_kl_loss', kl_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
       self.log('train_l2_loss', l2_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
@@ -61,15 +60,10 @@ class VAEGAN(L.LightningModule):
 
       perceptual_component = self.loss.perceptual_weight * perceptual_loss
       l2_component = self.loss.l2_weight * l2_loss
-      rec_loss = l2_component + perceptual_component
-      nll_loss = rec_loss / torch.exp(self.discriminator.logvar) + self.discriminator.logvar 
       adversarial_component = self.loss.adversarial_weight * g_loss
       kl_component = self.loss.kl_weight * kl_loss
-      
-      last_layer = self.vae.decoder.conv_out.weight
-      d_weight = self.calculate_adaptive_weight(nll_loss, g_loss, last_layer=last_layer)
 
-      loss = nll_loss + d_weight*disc_factor*adversarial_component + kl_component
+      loss = nll_loss + disc_factor*adversarial_component + kl_component
 
 
       opt_g.zero_grad()
@@ -134,23 +128,12 @@ class VAEGAN(L.LightningModule):
         vae_opt = torch.optim.Adam(self.vae.parameters(), lr=self.vae.lr, betas=(0.5, 0.9)) 
         return [vae_opt, disc_opt]
     
-    def adopt_weight(self, weight, global_step, threshold=0, value=0.):
+    def adopt_weight(weight, global_step, threshold=0, value=0.):
         if global_step < threshold:
             weight = value
         return weight
-    
-    def calculate_adaptive_weight(self, nll_loss, g_loss, last_layer=None):
-        if last_layer is not None:
-            nll_grads = torch.autograd.grad(nll_loss, last_layer, retain_graph=True)[0]
-            g_grads = torch.autograd.grad(g_loss, last_layer, retain_graph=True)[0]
-        else:
-            nll_grads = torch.autograd.grad(nll_loss, self.last_layer[0], retain_graph=True)[0]
-            g_grads = torch.autograd.grad(g_loss, self.last_layer[0], retain_graph=True)[0]
 
-        d_weight = torch.norm(nll_grads) / (torch.norm(g_grads) + 1e-4)
-        d_weight = torch.clamp(d_weight, 0.0, 1e4).detach()
-        d_weight = d_weight * self.discriminator.discriminator_weight
-        return d_weight
+
 
 def load_config(config_path):
     """loading the config file"""
