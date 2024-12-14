@@ -202,7 +202,6 @@ if __name__ == '__main__':
 
     trainer = L.Trainer(logger=logger,
                         callbacks=checkpoint_callback,
-                        strategy=DDPStrategy(process_group_backend='gloo', find_unused_parameters=True),
                         **config['trainer']
                         )
     trainer.fit(gan, datamodule, ckpt_path='drive/MyDrive/epoch-epoch=349.ckpt')
