@@ -20,12 +20,12 @@ vae_gan:
     adversarial_weight: 0.001
     kl_weight: 0.000001
 data:
-  batch_size: 8
+  batch_size: 20
   downsample_factor: 0.25
   bucket_name: 'sdo-subdataset'
-  s3_key_train: 'dataset/train_dataset.pt'
-  s3_key_val: 'dataset/val_dataset.pt'
-  s3_key_test: 'dataset/test_dataset.pt'
+  s3_key_train: 'dataset/train_data.pt'
+  s3_key_val: 'dataset/val_data.pt'
+  s3_key_test: 'dataset/test_data.pt'
 
 
 trainer:
@@ -37,7 +37,7 @@ trainer:
 
 callbacks:
   checkpoint:
-      dirpath: 'drive/MyDrive'               
+      dirpath: 'refactor/'               
       filename: 'epoch-{epoch:02d}'  
       save_top_k: -1          
       every_n_epochs: 5 

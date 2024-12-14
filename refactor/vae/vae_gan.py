@@ -41,11 +41,10 @@ class VAEGAN(L.LightningModule):
       logits_fake = self.discriminator(decoded.contiguous().detach())      
       d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
       self.log('d_loss', d_loss, prog_bar=True, logger=True)
-      
+      ##### generator ######
       opt_disc.zero_grad()
       self.manual_backward(d_loss)
       opt_disc.step()
-      ##### generator ######
 
       logits_fake = self.discriminator(decoded)
       g_loss = self.loss.g_loss(logits_fake)
@@ -160,7 +159,12 @@ if __name__ == '__main__':
 
     logger = WandbLogger(**config['logger'], config=config)
 
-    transform = transforms.Compose([rescalee])
+    transform = transforms.Compose([rescalee,
+    transforms.RandomRotation(degrees=(-30, 30)),  # Rotate between -15 to 15 degrees
+    transforms.RandomHorizontalFlip(p=0.5),  # 50% chance to flip horizontally
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Randomly translate within 10% of image size
+    transforms.GaussianBlur(kernel_size=(3, 3), sigma=(0.1, 2.0)),  # Apply Gaussian blur with random sigma
+])
     datamodule = DataModule(**config['data'],
                             aws_access_key=os.getenv('AWS_ACCESS_KEY_ID'),
                             aws_secret_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
@@ -173,6 +177,7 @@ if __name__ == '__main__':
 
     trainer = L.Trainer(logger=logger,
                         callbacks=checkpoint_callback,
+                        strategy=DDPStrategy(process_group_backend='gloo', find_unused_parameters=True),
                         **config['trainer']
                         )
     trainer.fit(gan, datamodule, ckpt_path='drive/MyDrive/epoch-epoch=349.ckpt')
