@@ -20,3 +20,5 @@ wandb
 omegaconf
 lightning
 boto3
+brisque
+sunpy[all]

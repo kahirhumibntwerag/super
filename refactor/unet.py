@@ -434,7 +434,7 @@ class ResChain(XTBlock):
         return x
     
 class Unet(nn.Module):
-    def __init__(self, in_channels=3, channels=[64, 128, 256, 512], num_resblocks=5):
+    def __init__(self, in_channels=4, channels=[64, 128, 256, 512], num_resblocks=5):
         super().__init__()        
         self.in_proj = nn.Conv2d(in_channels, channels[0], 3, padding=1)
         self.out_proj = nn.Conv2d(channels[0], in_channels, 3, padding=1)
@@ -461,12 +461,20 @@ class Unet(nn.Module):
         unet = self.down + self.mid + self.up
         connections = connection_finder(unet, 'ResChain')
         self.unet = Router(connections, *unet)
+    
+    def flops_and_parameters(self, input_shape):
+        from ptflops import get_model_complexity_info
+        flops, parameters = get_model_complexity_info(self, input_shape, as_strings=True, print_per_layer_stat=False)
+        return flops, parameters
 
     def forward(self, x, t):
         t = self.time_embedder(t)
         x = self.in_proj(x)
         x = self.unet(x, t)
         return self.out_proj(x) 
+    
+if __name__ == '__main__':
+    print(Unet().flops_and_parameters((4, 128, 128)))
 
 
 
