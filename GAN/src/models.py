@@ -605,6 +605,9 @@ def rescale(images):
 
     return 
 
+def resize(image):
+    lr = F.interpolate(image, size=(int(128), int(128)), mode='bilinear', align_corners=False)
+    return lr
 
 if __name__ == '__main__':
     config = load_config(os.path.join('config', 'configGan.yml'))
