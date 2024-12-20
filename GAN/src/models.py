@@ -51,7 +51,7 @@ class DataModule(L.LightningDataModule):
 
     def prepare_data(self):
         print("Connecting to S3 and downloading metadata...")
-        if not os.path.exists('train_data.pt'):
+        if not os.path.exists('5K.pt'):
             load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_train, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key, save_to_disk_path='train_data.pt')
         if not os.path.exists('val_data.pt'):
             load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_val, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key, save_to_disk_path='val_data.pt')
@@ -60,20 +60,20 @@ class DataModule(L.LightningDataModule):
     
     def setup(self, stage=None):
         if stage == "fit" or stage is None:
-            self.train_dataset = Dataset(tensors=torch.load('train_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
+            self.train_dataset = Dataset(tensors=torch.load('5K.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
             self.val_dataset = Dataset(tensors=torch.load('val_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
 
         if stage == "test" or stage is None:
             self.test_dataset = Dataset(tensors=torch.load('test_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
     
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, persistent_workers=True, pin_memory=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, num_workers=190, persistent_workers=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, persistent_workers=True, pin_memory=True)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=190, persistent_workers=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, persistent_workers=True, pin_memory=True)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=190, persistent_workers=True)
     
 #####################################################################################
 ############################### dicriminator ########################################
@@ -82,11 +82,7 @@ class DataModule(L.LightningDataModule):
 import torch.nn as nn
 import torch
 # Initialize the generator
-import torch.nn as nn
 import lightning as L
-
-import torch
-import torch.nn as nn
 
 class Discriminator(nn.Module):
     def __init__(self, in_channels=3, channel_list=[64, 128, 256], lr=1e-6):
@@ -134,6 +130,7 @@ import numpy as np
 ############################################################################
 ############################## Generator ###################################
 ############################################################################
+import torch.nn as nn
 class ResidualBlock(nn.Module):
     """
     Define a Residual Block without Batch Normalization
@@ -163,7 +160,7 @@ class RRDB(nn.Module):
         return x + self.residual_blocks(x)
 
 
-class Generator(L.LightningModule):
+class Generator(nn.Module):
     """
     Define the Generator network for solar images with 1 channel
     """
@@ -463,10 +460,6 @@ class PerceptualLoss(nn.Module):
 import os
 import torch
 import torch.nn as nn
-from refactor.vae.test import VAE
-from refactor.vae.discriminator import Discriminator
-from refactor.vae.lpips  import VAELOSS
-from refactor.vae.datamodule  import DataModule
 from lightning.pytorch.callbacks import ModelCheckpoint
 
 from torchvision import transforms
@@ -483,26 +476,25 @@ import numpy as np
 from PIL import Image
       
 from lightning.pytorch.loggers import WandbLogger
-from lightning.pytorch.strategies import DDPStrategy
 
 class GAN(L.LightningModule):
     def __init__(self, **configs):
         super().__init__()
         self.automatic_optimization = False
         self.save_hyperparameters()
-        generator = Generator(**configs['generator'])
-        discriminator = Discriminator(**configs['discriminator'])
-        loss = VAELOSS(**configs['loss'])
+        self.generator = Generator(**configs['generator'])
+        self.discriminator = Discriminator(**configs['discriminator'])
+        self.loss = VAELOSS(**configs['loss'])
 
 
     def training_step(self, batch, batch_idx):
       opt_g, opt_disc = self.optimizers()
       
-      _, hr = batch
-      decoded, mean, logvar = self.vae(hr)
+      lr, hr = batch
+      sr = self.generator(lr)
       ###### discriminator #######
       logits_real = self.discriminator(hr.contiguous().detach())      
-      logits_fake = self.discriminator(decoded.contiguous().detach())      
+      logits_fake = self.discriminator(sr.contiguous().detach())      
       d_loss = self.loss.adversarial_loss(logits_real, logits_fake)
       self.log('d_loss', d_loss, prog_bar=True, logger=True)
       ##### generator ######
@@ -510,10 +502,10 @@ class GAN(L.LightningModule):
       self.manual_backward(d_loss)
       opt_disc.step()
 
-      logits_fake = self.discriminator(decoded)
+      logits_fake = self.discriminator(sr)
       g_loss = self.loss.g_loss(logits_fake)
-      l2_loss = self.loss.l2_loss(hr, decoded)
-      perceptual_loss = self.loss.perceptual_loss(hr, decoded).mean()
+      l2_loss = self.loss.l2_loss(hr, sr)
+      perceptual_loss = self.loss.perceptual_loss(hr, sr).mean()
       self.log('train_g_loss', g_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
       self.log('train_l2_loss', l2_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
       self.log('train_perceptual_loss', perceptual_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
@@ -531,7 +523,7 @@ class GAN(L.LightningModule):
 
       if (batch_idx % 100) == 0:
             fig, ax = plt.subplots()
-            ax.imshow(inverse_rescalee(decoded)[0].detach().cpu().numpy().squeeze(), cmap='afmhot')
+            ax.imshow(inverse_rescalee(sr)[0].detach().cpu().numpy().squeeze(), cmap='afmhot')
             ax.axis('off')
 
             # Save the figure to a buffer in RGB format
@@ -549,23 +541,21 @@ class GAN(L.LightningModule):
             self.logger.experiment.log({f"train_image_afmhot_batch_{batch_idx}": wandb_image})
 
     def validation_step(self, x, batch_idx):
-        _, hr = x
-        decoded, mean, logvar = self.vae(hr)
-        logits_fake = self.discriminator(decoded)
+        lr, hr = x
+        sr = self.generator(lr)
+        logits_fake = self.discriminator(sr)
         
         g_loss = self.loss.g_loss(logits_fake)
-        kl_loss = self.loss.kl_loss(mean, logvar)
-        l2_loss = self.loss.l2_loss(hr, decoded)
-        perceptual_loss = torch.mean(self.loss.perceptual_loss(hr, decoded))
+        l2_loss = self.loss.l2_loss(hr, sr)
+        perceptual_loss = torch.mean(self.loss.perceptual_loss(hr, sr))
         
         self.log('val_g_loss', g_loss, prog_bar=True, sync_dist=True)
-        self.log('val_kl_loss', kl_loss, prog_bar=True, sync_dist=True)
         self.log('val_l2_loss', l2_loss, prog_bar=True, sync_dist=True)
         self.log('val_perceptual_loss', perceptual_loss, prog_bar=True, sync_dist=True)
 
         if batch_idx == 0:
             fig, ax = plt.subplots()
-            ax.imshow(inverse_rescalee(decoded)[0].cpu().numpy().squeeze(), cmap='afmhot')
+            ax.imshow(inverse_rescalee(sr)[0].cpu().numpy().squeeze(), cmap='afmhot')
             ax.axis('off')
             
             # Save the figure to a buffer in RGB format
@@ -584,7 +574,7 @@ class GAN(L.LightningModule):
 
     def configure_optimizers(self):
         disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=self.discriminator.lr, betas=(0.5, 0.9)) 
-        vae_opt = torch.optim.Adam(self.vae.parameters(), lr=self.vae.lr, betas=(0.5, 0.9)) 
+        vae_opt = torch.optim.Adam(self.generator.parameters(), lr=self.generator.lr, betas=(0.5, 0.9)) 
         return [vae_opt, disc_opt]
 
 
@@ -633,7 +623,7 @@ if __name__ == '__main__':
                             transform=transform
                             )
     
-    gan = GAN(**config['gan'])
+    gan = GAN(**config)
 
     logger.watch(gan, log='all')
 
