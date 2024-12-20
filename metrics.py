@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import dask.array as da
+
 def kld(p, q):
     """
     Compute the Kullback-Leibler Divergence between two distributions.
@@ -143,7 +145,7 @@ def kld_loss(hr_image, sr_image, num_levels=3):
         kldd = kld(hist_hr, hist_sr)
         kld_values.append(kldd)
 
-    return kld_values[0].mean().item()
+    return kld_values[0].item()
 
 
 from brisque import BRISQUE
@@ -156,6 +158,7 @@ def calculate_brisque_score(image, image2=None):
     """
     # Ensure image is a PyTorch tensor
     image_tensor = convert_to_tensor(image)
+    image_tensor = image_tensor.view(512, 512)
 
     # Convert to a NumPy array and normalize the pixel values
     image_numpy = image_tensor.unsqueeze(2).repeat(1, 1, 3).numpy()

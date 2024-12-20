@@ -1,0 +1,44 @@
+loss:
+  perceptual_weight: 1.0
+  l2_weight: 0.01
+  adversarial_weight: 0.001
+
+generator:
+  in_channels: 1
+  initial_channel: 64
+  num_rrdb_blocks: 4
+  upscale_factor: 4
+  lr: 0.0001
+
+discriminator:
+  in_channels: 1
+  channel_list: [64, 128, 256]
+  lr: 0.000001
+
+
+
+data:
+  batch_size: 8
+  downsample_factor: 0.25
+  bucket_name: 'sdo-subdataset'
+  s3_key_train: 'dataset/train_data.pt'
+  s3_key_val: 'dataset/val_data.pt'
+  s3_key_test: 'dataset/test_data.pt'
+
+
+trainer:
+  max_epochs: 500
+  accelerator: "gpu"
+  devices: "auto"
+  strategy: 'ddp_find_unused_parameters_true'
+  precision: '16-mixed'
+
+callbacks:
+  checkpoint:
+      dirpath: 'refactor/'               
+      filename: 'epoch-{epoch:02d}'  
+      save_top_k: -1          
+      every_n_epochs: 5 
+
+logger:
+  project: 'your_project_name'
