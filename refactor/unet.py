@@ -473,6 +473,11 @@ class Unet(nn.Module):
         x = self.unet(x, t)
         return self.out_proj(x) 
     
+
+
+
+
+
 if __name__ == '__main__':
     print(Unet().flops_and_parameters((4, 128, 128)))
 

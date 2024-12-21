@@ -10,7 +10,6 @@ to_torch = partial(torch.tensor, dtype=torch.float32)
 
 class Diffusion(nn.Module):
     def __init__(self,
-                schedule: BetaSchedule,
                 parameterization: str ='eps',
                 v_posterior: float = 0.0
                 ):
@@ -18,7 +17,6 @@ class Diffusion(nn.Module):
         super().__init__()
         self.parameterization = parameterization
         self.v_posterior = v_posterior
-        self.schedule = schedule
         self.register_schedule()
 
     def register_schedule(self):
