@@ -52,7 +52,7 @@ class DataModule(L.LightningDataModule):
     def prepare_data(self):
         print("Connecting to S3 and downloading metadata...")
         if not os.path.exists('5K.pt'):
-            load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_train, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key, save_to_disk_path='train_data.pt')
+            load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_train, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key, save_to_disk_path='5K.pt')
         if not os.path.exists('val_data.pt'):
             load_tensor_from_s3(bucket_name=self.bucket_name, s3_key=self.s3_key_val, aws_access_key=self.aws_access_key, aws_secret_key=self.aws_secret_key, save_to_disk_path='val_data.pt')
         if not os.path.exists('test_data.pt'):
@@ -67,119 +67,14 @@ class DataModule(L.LightningDataModule):
             self.test_dataset = Dataset(tensors=torch.load('test_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
     
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, num_workers=190, persistent_workers=True)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, pin_memory=True, num_workers=12, persistent_workers=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=190, persistent_workers=True)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=12, persistent_workers=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=190, persistent_workers=True)
-    
-###################################################################
-############################# diffusion ###########################
-###################################################################
-import torch
-import torch.nn as nn
-import numpy as np
-from abc import ABC, abstractmethod
-from functools import partial
-from inspect import isfunction
-import numpy as np
-from schedules import extract_into_tensor, exists
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True, num_workers=12, persistent_workers=True)
 
-to_torch = partial(torch.tensor, dtype=torch.float32)
-
-def extract_into_tensor(a, t, x_shape):
-    b, *_ = t.shape
-    out = a.gather(-1, t)
-    return out.reshape(b, *((1,) * (len(x_shape) - 1)))
-
-def exists(x):
-    return x is not None
-
-
-def default(val, d):
-    if exists(val):
-        return val
-    return d() if isfunction(d) else d
-
-class BetaSchedule(ABC):
-    @abstractmethod
-    def betas(self):
-        pass
-
-class LinearSchedule(BetaSchedule):
-    def __init__(self, timesteps=1000, linear_start=1e-4, linear_end=2e-2):
-        self.timesteps = timesteps
-        self.linear_start = linear_start
-        self.linear_end = linear_end
-
-    def betas(self):
-        return (
-            torch.linspace(self.linear_start ** 0.5, self.linear_end ** 0.5, self.timesteps, dtype=torch.float64) ** 2
-        )
-
-
-to_torch = partial(torch.tensor, dtype=torch.float32)
-
-class Diffusion(nn.Module):
-    def __init__(self,
-                parameterization: str ='eps',
-                v_posterior: float = 0.0
-                ):
-
-        super().__init__()
-        self.parameterization = parameterization
-        self.v_posterior = v_posterior
-        self.schedule = LinearSchedule()
-        self.register_schedule()
-
-    def register_schedule(self):
-
-        betas =  self.schedule.betas().numpy()
-        alphas = 1. - betas
-        alphas_cumprod = np.cumprod(alphas, axis=0)
-        alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
-        assert alphas_cumprod.shape[0] == self.schedule.timesteps
-
-        self.register_buffer('betas', to_torch(betas))
-        self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
-        self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
-
-        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
-        self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
-        self.register_buffer('log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
-        self.register_buffer('sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
-        self.register_buffer('sqrt_recipm1_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod - 1)))
-
-        posterior_variance = (1 - self.v_posterior) * betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod) + self.v_posterior * betas
-
-        self.register_buffer('posterior_variance', to_torch(posterior_variance))
-        self.register_buffer('posterior_log_variance_clipped', to_torch(np.log(np.maximum(posterior_variance, 1e-20))))
-        self.register_buffer('posterior_mean_coef1', to_torch(betas * np.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)))
-        self.register_buffer('posterior_mean_coef2', to_torch((1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod)))
-
-
-        if self.parameterization == "eps":
-            lvlb_weights = self.betas ** 2 / (2 * self.posterior_variance * to_torch(alphas) * (1 - self.alphas_cumprod))
-        elif self.parameterization == "x0":
-            lvlb_weights = 0.5 * np.sqrt(torch.Tensor(alphas_cumprod)) / (2. * 1 - torch.Tensor(alphas_cumprod))
-        else:
-            raise NotImplementedError("mu not supported")
-
-        # TODO how to choose this term
-        lvlb_weights[0] = lvlb_weights[1]
-        self.register_buffer('lvlb_weights', lvlb_weights, persistent=False)
-        assert not torch.isnan(self.lvlb_weights).all()
-
-    def add_noise(self, x0, t):
-      noise = torch.randn_like(x0)
-
-      sqrt_alphas_cumprod = extract_into_tensor(self.sqrt_alphas_cumprod, t, x0.shape)
-      sqrt_one_minus_alphas_cumprod = extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x0.shape)
-
-      xt = sqrt_alphas_cumprod * x0 + sqrt_one_minus_alphas_cumprod * noise
-      return xt, noise
 
 #########################################################
 ######################### LDM ###########################
@@ -190,24 +85,26 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 import torch.nn as nn
 import torch
 from torch.optim import AdamW
-from schedules import LinearSchedule, BetaSchedule
-from unet import Unet
-from diffusion import Diffusion
-from tqdm import tqdm
-from torch.utils.data import DataLoader
+from .unet2 import Unet
 from data.Dataset import Dataset
-from unet2 import Unet
 from torchvision import transforms
 from lightning.pytorch.loggers import WandbLogger
 from refactor.vae.vae_gan import VAEGAN
+from .diffusion import Diffusion
+from .sampler import Schedule, Runner
 import yaml
-class LDM(nn.Module):
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+import wandb
+class LDM(L.LightningModule):
     def __init__(self, **configs):
         super().__init__()
-        self.diffusion = Diffusion()
-        self.vae = VAEGAN.load_from_checkpoint(configs['vae']['path'], vae=configs['vae']['generator'], discriminator=configs['vae']['discriminator'], loss=configs['vae']['loss']).vae.eval()
+        self.save_hyperparameters()
+        self.vae = VAEGAN.load_from_checkpoint(configs['vae']['path'], vae=configs['vae']['vae'], discriminator=configs['vae']['discriminator'], loss=configs['vae']['loss']).vae.eval()
         self.unet = Unet(**configs['unet'])
         self.loss = nn.MSELoss()
+        self.diffusion = Diffusion()
         for param in self.vae.parameters():
             param.requires_grad = False
     
@@ -215,29 +112,60 @@ class LDM(nn.Module):
         lr, hr = batch
         z, _, _ = self.vae.encoder(hr)
 
-        t = torch.randint(1000, size=(z.shape[0],))
-        zt, noise = self.diffusion.add_noise(z, t)
+        t = torch.randint(1000, size=(z.shape[0],), device=z.device)
+        zt, noise = self.add_noise(z, t)
         predicted_noise = self.unet(torch.cat([zt, lr], dim=1), t)
         loss = self.loss(noise, predicted_noise)
-        self.log('train_loss', loss, prog_bar=True)
+        self.log('train_loss', loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return loss
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         lr, hr = batch
         z, _, _ = self.vae.encoder(hr)
 
-        t = torch.randint(1000, size=(z.shape[0],))
-        zt, noise = self.diffusion.add_noise(z, t)
+        t = torch.randint(1000, size=(z.shape[0],), device=z.device)
+        zt, noise = self.add_noise(z, t)
         predicted_noise = self.unet(torch.cat([zt, lr], dim=1), t)
         loss = self.loss(noise, predicted_noise)
-        self.log('val_loss', loss, prog_bar=True)
+        self.log('val_loss', loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        
+        if (batch_idx % 10) == 0:
+            sr = self.sample(lr, 50)
+            fig, ax = plt.subplots()
+            ax.imshow(inverse_rescalee(sr)[0].cpu().numpy().squeeze(), cmap='afmhot')
+            ax.axis('off')
+            
+            # Save the figure to a buffer in RGB format
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+            buf.seek(0)
 
+            # Convert buffer to a NumPy array
+            image = Image.open(buf)
+            image_np = np.array(image)
+
+            # Log the image to Wandb
+            wandb_image = wandb.Image(image_np, caption=f"Validation Image Batch {batch_idx} with afmhot colormap")
+            self.logger.experiment.log({f"val_image_afmhot_batch_{batch_idx}": wandb_image})
         return loss
 
         
     def configure_optimizers(self):
-        return AdamW(self.unet.parameters(), lr=self.lr)
+        return AdamW(self.unet.parameters(), lr=self.unet.lr)
+    
+
+    def sample(self, lrs, sample_speed, device):
+        runner = Runner(Schedule(), sample_speed, device)
+        skip = 1000//sample_speed
+        seq = range(0, 1000, skip)
+        noise = torch.randn(size=lrs.shape, device=lrs.device)
+        z = runner.sample_image(lrs, noise, seq, self.unet)
+        sr = self.vae.decoder(z)
+        return sr
+    
+
 
 def load_config(config_path):
     """loading the config file"""

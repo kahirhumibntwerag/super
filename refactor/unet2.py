@@ -1,6 +1,7 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 import math
+
 class Swish(nn.Module):
   def forward(self, x):
     return x*torch.sigmoid(x)
@@ -171,7 +172,7 @@ class Downsample(nn.Module):
 
 
 class Unet(nn.Module):
-  def __init__(self, image_channels=1,
+  def __init__(self, image_channels=4,
                n_channels=64,
                channels_factors=[1, 2, 3, 4],
                att=[False, False, False, False],
@@ -179,11 +180,8 @@ class Unet(nn.Module):
                lr=0.0001
                ):
     super().__init__()
-
+    self.lr = lr
     n_resolutions = len(channels_factors)
-
-
-
 
     self.image_proj = nn.Conv2d(image_channels, n_channels, kernel_size=(3, 3), padding=(1, 1))
 
@@ -225,31 +223,26 @@ class Unet(nn.Module):
     self.ups = nn.ModuleList(ups)
     self.norm = nn.GroupNorm(8, n_channels)
     self.act = Swish()
-    self.final = nn.Conv2d(in_channels, 2, kernel_size=(3, 3), padding=(1, 1))
+    self.final = nn.Conv2d(in_channels, 3, kernel_size=(3, 3), padding=(1, 1))
 
   def forward(self, x, t):
+    t = self.time_emb(t)
+    x = self.image_proj(x)
 
-      t_emb = self.time_emb(t)
-      x = self.image_proj(x)
+    h = [x]
+    for m in self.down:
+      x = m(x, t)
+      h.append(x)
 
-      # Downsample blocks
-      h = [x]
-      for m in self.down:
-          x = m(x, t)
-          h.append(x)
+    x = self.middle(x, t)
 
-      # Middle block
-      x = self.middle(x, t)
+    for m in self.ups:
+      if isinstance(m, Upsample):
+        x = m(x, t)
+      else:
+        s = h.pop()
+        x = torch.cat((x, s), dim=1)
 
-      # Upsample blocks
-      for m in self.ups:
-          if isinstance(m, Upsample):
-              x = m(x, t)
-          else:
-              s = h.pop()
-              x = torch.cat((x, s), dim=1)
-              x = m(x, t)
+        x = m(x, t)
 
-      # Final output
-      return self.final(self.act(self.norm(x)))
-
+    return self.final(self.act(self.norm(x)))

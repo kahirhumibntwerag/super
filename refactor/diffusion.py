@@ -4,7 +4,40 @@ import numpy as np
 from abc import ABC, abstractmethod
 from functools import partial
 from inspect import isfunction
-from schedules import extract_into_tensor, exists, default, LinearSchedule, BetaSchedule
+import numpy as np
+
+to_torch = partial(torch.tensor, dtype=torch.float32)
+
+def extract_into_tensor(a, t, x_shape):
+    b, *_ = t.shape
+    out = a.gather(-1, t)
+    return out.reshape(b, *((1,) * (len(x_shape) - 1)))
+
+def exists(x):
+    return x is not None
+
+
+def default(val, d):
+    if exists(val):
+        return val
+    return d() if isfunction(d) else d
+
+class BetaSchedule(ABC):
+    @abstractmethod
+    def betas(self):
+        pass
+
+class LinearSchedule(BetaSchedule):
+    def __init__(self, timesteps=1000, linear_start=1e-4, linear_end=2e-2):
+        self.timesteps = timesteps
+        self.linear_start = linear_start
+        self.linear_end = linear_end
+
+    def betas(self):
+        return (
+            torch.linspace(self.linear_start ** 0.5, self.linear_end ** 0.5, self.timesteps, dtype=torch.float64) ** 2
+        )
+
 
 to_torch = partial(torch.tensor, dtype=torch.float32)
 
@@ -17,6 +50,7 @@ class Diffusion(nn.Module):
         super().__init__()
         self.parameterization = parameterization
         self.v_posterior = v_posterior
+        self.schedule = LinearSchedule()
         self.register_schedule()
 
     def register_schedule(self):
@@ -65,4 +99,3 @@ class Diffusion(nn.Module):
 
       xt = sqrt_alphas_cumprod * x0 + sqrt_one_minus_alphas_cumprod * noise
       return xt, noise
-

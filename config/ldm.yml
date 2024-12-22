@@ -1,4 +1,4 @@
- ldm:
+ldm:
   vae:
     vae:
       channel_in: 1
@@ -21,43 +21,36 @@
       adversarial_weight: 0.001
       kl_weight: 0.000001
     
-    path: 'epoch-epoch=279 (1).ckpt'
+    path: "drive/MyDrive/epoch-epoch=279 (1).ckpt"
 
   unet: 
-    image_channels: 1
-    n_channels: 64,
-    channels_factors: [1, 2, 3, 4],
-    att: [False, False, False, False],
-    n_blocks: 1,
+    image_channels: 4
+    n_channels: 64
+    channels_factors: [1, 2, 3]
+    att: [False, False, False]
+    n_blocks: 1
     lr: 0.0001
 
-
 data:
-  batch_size: 20
+  batch_size: 8
   downsample_factor: 0.25
-  bucket_name: 'sdo-subdataset'
-  s3_key_train: 'dataset/train_data.pt'
-  s3_key_val: 'dataset/val_data.pt'
-  s3_key_test: 'dataset/test_data.pt'
-
+  bucket_name: "sdo-subdataset"
+  s3_key_train: "dataset/train_data.pt"
+  s3_key_val: "dataset/val_data.pt"
+  s3_key_test: "dataset/test_data.pt"
 
 trainer:
   max_epochs: 500
   accelerator: "gpu"
   devices: "auto"
-  strategy: 'ddp_find_unused_parameters_true'
-  precision: '16-mixed'
+  precision: "16-mixed"
 
 callbacks:
   checkpoint:
-      dirpath: 'refactor/'               
-      filename: 'epoch-{epoch:02d}'  
-      save_top_k: -1          
-      every_n_epochs: 5 
+    dirpath: "refactor/"               
+    filename: "epoch-{epoch:02d}"  
+    save_top_k: -1          
+    every_n_epochs: 5 
 
 logger:
-  project: 'your_project_name'
-
-
-
-
+  project: "your_project_name"
