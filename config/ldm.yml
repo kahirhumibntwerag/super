@@ -47,7 +47,7 @@ trainer:
 
 callbacks:
   checkpoint:
-    dirpath: "refactor/"               
+    dirpath: "drive/MyDrive "               
     filename: "epoch-{epoch:02d}"  
     save_top_k: -1          
     every_n_epochs: 5 

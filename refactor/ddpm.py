@@ -10,6 +10,7 @@ import boto3
 import torch
 import io
 import os
+from data.LoadData import AWS_ZARR_ROOT, load_single_aws_zarr
 
 def load_tensor_from_s3(bucket_name, s3_key, aws_access_key=None, aws_secret_key=None, region_name='eu-north-1', save_to_disk_path=None):
     if aws_access_key and aws_secret_key:
@@ -60,9 +61,14 @@ class DataModule(L.LightningDataModule):
     
     def setup(self, stage=None):
         if stage == "fit" or stage is None:
-            self.train_dataset = Dataset(tensors=torch.load('5K.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
-            self.val_dataset = Dataset(tensors=torch.load('val_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
-
+            #self.train_dataset = Dataset(tensors=torch.load('5K.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
+            #self.val_dataset = Dataset(tensors=torch.load('val_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
+            self.train_dataset = Dataset(torch.from_numpy(load_single_aws_zarr(AWS_ZARR_ROOT+str(2015), wavelength='193A')[::160].compute()),
+                                          downsample_factor=self.downsample_factor,
+                                            transform=self.transform)
+            self.val_dataset = Dataset(torch.from_numpy(load_single_aws_zarr(AWS_ZARR_ROOT+str(2015), wavelength='193A')[::251].compute()),
+                                          downsample_factor=self.downsample_factor,
+                                            transform=self.transform)
         if stage == "test" or stage is None:
             self.test_dataset = Dataset(tensors=torch.load('test_data.pt'), downsample_factor=self.downsample_factor, transform=self.transform)
     
@@ -113,7 +119,7 @@ class LDM(L.LightningModule):
         z, _, _ = self.vae.encoder(hr)
 
         t = torch.randint(1000, size=(z.shape[0],), device=z.device)
-        zt, noise = self.add_noise(z, t)
+        zt, noise = self.diffusion.add_noise(z, t)
         predicted_noise = self.unet(torch.cat([zt, lr], dim=1), t)
         loss = self.loss(noise, predicted_noise)
         self.log('train_loss', loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
@@ -125,13 +131,13 @@ class LDM(L.LightningModule):
         z, _, _ = self.vae.encoder(hr)
 
         t = torch.randint(1000, size=(z.shape[0],), device=z.device)
-        zt, noise = self.add_noise(z, t)
+        zt, noise = self.diffusion.add_noise(z, t)
         predicted_noise = self.unet(torch.cat([zt, lr], dim=1), t)
         loss = self.loss(noise, predicted_noise)
         self.log('val_loss', loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         
         if (batch_idx % 10) == 0:
-            sr = self.sample(lr, 50)
+            sr = self.sample(lr, 50, 'cuda')
             fig, ax = plt.subplots()
             ax.imshow(inverse_rescalee(sr)[0].cpu().numpy().squeeze(), cmap='afmhot')
             ax.axis('off')
@@ -160,7 +166,7 @@ class LDM(L.LightningModule):
         runner = Runner(Schedule(), sample_speed, device)
         skip = 1000//sample_speed
         seq = range(0, 1000, skip)
-        noise = torch.randn(size=lrs.shape, device=lrs.device)
+        noise = torch.randn(size=(lrs.shape[0], 1, 128, 128), device=lrs.device)
         z = runner.sample_image(lrs, noise, seq, self.unet)
         sr = self.vae.decoder(z)
         return sr
