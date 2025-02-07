@@ -1,0 +1,35 @@
+project_name: "solar-super-resolution"
+run_name: "rrdb-baseline"
+
+trainer:
+  max_epochs: 100
+  precision: 32
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  checkpoint_dir: "checkpoints/"
+  save_top_k: 3
+  monitor: "val_loss"
+
+generator:
+  in_channels: 1
+  initial_channel: 64
+  num_rrdb_blocks: 4
+  upscale_factor: 4
+  lr: 1e-4
+
+data:
+  train_path: "data/train_tensor.pt"
+  val_path: "data/val_tensor.pt"
+  test_path: "data/test_tensor.pt"
+  batch_size: 32
+  num_workers: 4
+
+
+callbacks:
+  checkpoint:
+    dirpath: "checkpoints/"
+    filename: "rrdb-{epoch:02d}-{val_loss:.2f}"
+    save_top_k: 3
+    monitor: "val_loss"
+    mode: "min"
+    save_last: True

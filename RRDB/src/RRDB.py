@@ -1,23 +1,9 @@
 import torch.nn as nn
-
+import torch.nn.functional as F
 import torch
-
 import numpy as np
-
-class Arrow:
-    def __init__(self, tensor):
-        self.tensor = tensor
-    
-class Concat:
-    def __init__(self):
-        self.arrows = []
-    def in_arrow(self, arrow):
-        self.arrows.append(arrow)
-    def concate(self):
-        return torch.cat(self.arrows, dim=0)
-
-
-
+import lightning as L
+import wandb
 
 class ResidualBlock(nn.Module):
     """
@@ -48,12 +34,14 @@ class RRDB(nn.Module):
         return x + self.residual_blocks(x)
 
 
-class Generator(nn.Module):
+class generator(nn.Module):
     """
     Define the Generator network for solar images with 1 channel
     """
-    def __init__(self, in_channels=1, initial_channel=64,num_rrdb_blocks=4, upscale_factor=4, **kwargs):
-        super(Generator, self).__init__()
+    def __init__(self, in_channels=1, initial_channel=64,num_rrdb_blocks=4, upscale_factor=4, lr=1e-4, **kwargs):
+        super(self).__init__()
+
+        self.lr = lr
 
         self.initial = nn.Sequential(
             nn.Conv2d(in_channels, initial_channel, kernel_size=9, stride=1, padding=4),
@@ -85,12 +73,74 @@ class Generator(nn.Module):
         return self.output(upsampled)
 
 
+class Generator(L.LightningModule):
+    def __init__(self, config):
+        super(self).__init__()
+        self.save_hyperparameters()
+        self.generator = generator(config)
+    
+    def forward(self, x):
+        return self.generator(x)
+    
+    def training_step(self, batch, batch_idx):
+        lr, hr = batch
+        sr = self(lr)
+        loss = F.mse_loss(sr, hr)
+        self.log('train_loss', loss)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        lr, hr = batch
+        sr = self(lr)
+        loss = F.mse_loss(sr, hr)
+        self.log('val_loss', loss)
+        # Store predictions for epoch_end logging
+        if batch_idx == 0:  # Only store first batch to save memory
+            self.validation_step_outputs = {'lr': lr, 'hr': hr, 'sr': sr}
+        return loss
+    
+    def test_step(self, batch, batch_idx):
+        lr, hr = batch
+        sr = self(lr)
+        loss = F.mse_loss(sr, hr)
+        self.log('test_loss', loss)
+        return loss
 
-def build_generator(config):
-    gen_dict = dict(in_channels = config.RRDB.model.in_channels,
-    initial_channel = config.RRDB.model.initial_channel,
-    num_rrdb_blocks = config.RRDB.model.num_rrdb_blocks,
-    upscale_factor = config.RRDB.model.upscale_factor
-    )
-    return Generator(**gen_dict)
+    def on_validation_epoch_end(self):
+        # Get the stored predictions
+        lr = self.validation_step_outputs['lr']
+        hr = self.validation_step_outputs['hr']
+        sr = self.validation_step_outputs['sr']
+        
+        # Log only first few images
+        num_images = min(4, lr.size(0))
+        
+        def tensor_to_image(tensor):
+            # Move to CPU, convert to numpy, ensure proper shape
+            img = tensor.cpu().float().clamp(0, 1).squeeze().numpy()
+            return img
+        
+        # Create and log images
+        for i in range(num_images):
+            self.logger.experiment.log({
+                f"validation/image_{i}/lr": wandb.Image(
+                    tensor_to_image(lr[i]), 
+                    caption="Low Resolution",
+                    cmap='afmhot'
+                ),
+                f"validation/image_{i}/hr": wandb.Image(
+                    tensor_to_image(hr[i]), 
+                    caption="High Resolution",
+                    cmap='afmhot'
+                ),
+                f"validation/image_{i}/sr": wandb.Image(
+                    tensor_to_image(sr[i]), 
+                    caption="Super Resolution",
+                    cmap='afmhot'
+                )
+            })
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.generator.lr)
+        return optimizer
     
