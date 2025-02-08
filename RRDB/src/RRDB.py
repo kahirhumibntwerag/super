@@ -34,12 +34,12 @@ class RRDB(nn.Module):
         return x + self.residual_blocks(x)
 
 
-class generator(nn.Module):
+class Generator(nn.Module):
     """
     Define the Generator network for solar images with 1 channel
     """
-    def __init__(self, in_channels=1, initial_channel=64,num_rrdb_blocks=4, upscale_factor=4, lr=1e-4, **kwargs):
-        super(self).__init__()
+    def __init__(self, in_channels=1, initial_channel=64, num_rrdb_blocks=4, upscale_factor=4, lr=1e-4, **kwargs):
+        super(Generator, self).__init__()
 
         self.lr = lr
 
@@ -73,11 +73,11 @@ class generator(nn.Module):
         return self.output(upsampled)
 
 
-class Generator(L.LightningModule):
+class LightningGenerator(L.LightningModule):
     def __init__(self, config):
-        super(self).__init__()
+        super(LightningGenerator, self).__init__()
         self.save_hyperparameters()
-        self.generator = generator(config)
+        self.generator = Generator(**config)
     
     def forward(self, x):
         return self.generator(x)

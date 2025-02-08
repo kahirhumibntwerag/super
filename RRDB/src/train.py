@@ -9,8 +9,8 @@ from pathlib import Path
 from torchvision import transforms
 import torch.nn.functional as F
 
-from RRDB import Generator
-from datamodule import DataModule
+from src.RRDB import Generator
+from src.datamodule import DataModule
 
 def rescalee(images):
     images_clipped = torch.clamp(images, min=1)

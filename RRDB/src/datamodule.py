@@ -14,18 +14,19 @@ class Dataset(Dataset):
 
     def __getitem__(self, idx):        
         hr = self.tensors[idx]
-        height, width = hr.shape
         if len(hr.shape) == 2:
             hr = hr.unsqueeze(0)
         
         if self.transform:
-            hr = self.transform(hr).float().view(-1, 1, 512, 512)
-            lr = F.interpolate(
-                hr, 
-                size=(int(height*self.downsample_factor), int(width*self.downsample_factor)), 
-                mode='bilinear', 
-                align_corners=False
-            )
+            hr = self.transform(hr)
+        
+        hr = hr.float().view(-1, 1, 512, 512)
+        lr = F.interpolate(
+            hr, 
+            size=(int(512*self.downsample_factor), int(512*self.downsample_factor)), 
+            mode='bilinear', 
+            align_corners=False
+        )
             
         return lr.squeeze(0), hr.squeeze(0)
 
