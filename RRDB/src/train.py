@@ -8,17 +8,36 @@ import yaml
 from pathlib import Path
 from torchvision import transforms
 import torch.nn.functional as F
+import numpy as np
 
-from src.RRDB import Generator
+from src.RRDB import LightningGenerator
 from src.datamodule import DataModule
 
-def rescalee(images):
-    images_clipped = torch.clamp(images, min=1)
-    images_log = torch.log(images_clipped)
-    max_value = torch.log(torch.tensor(20000))
-    max_value = torch.clamp(max_value, min=1e-9)
-    images_normalized = images_log / max_value
-    return images_normalized
+def power_transform(images, lambda_param=0.1):
+    """
+    Apply power transform (Box-Cox like transform) to the images.
+    Args:
+        images: Input tensor
+        lambda_param: Power transform parameter (default=0.5 for square root)
+    Returns:
+        Transformed tensor
+    """
+    # Ensure positive values
+    eps = 1e-8
+    images = torch.clamp(images, min=eps)
+    
+    # Apply power transform
+    if lambda_param == 0:
+        transformed = torch.log(images)
+    else:
+        transformed = (images ** lambda_param - 1) / lambda_param
+    
+    # Normalize to [0, 1]
+    min_val = transformed.min()
+    max_val = transformed.max()
+    normalized = (transformed - min_val) / (max_val - min_val)
+    
+    return normalized
 
 def rescale(images):
     rescaled_images = images / 20000
@@ -40,16 +59,17 @@ def train():
         config=config
     )
 
-    # Define transforms
+    # Define transforms with power transform instead of rescalee
     transform = transforms.Compose([
-        rescalee,
-        transforms.RandomHorizontalFlip(p=0.5)  # 50% chance to flip horizontally
+        power_transform,  # Replace rescalee with power_transform
+        transforms.RandomHorizontalFlip(p=0.5)
     ])
 
     # Initialize DataModule and Model with transforms
-    datamodule = DataModule(config['data'], transform=transform)
-    model = Generator(config['generator'])
+    datamodule = DataModule(**config['data'], transform=transform)
+    model = LightningGenerator(config)
     wandb_logger.watch(model, log='all')
+    
     # Callbacks
     callbacks = [
         ModelCheckpoint(**config['callbacks']['checkpoint']),
@@ -59,13 +79,11 @@ def train():
     trainer = L.Trainer(
         **config['trainer'],
         logger=wandb_logger,
-        callbacks=callbacks    )
+        callbacks=callbacks
+    )
 
     # Train the model
     trainer.fit(model, datamodule=datamodule)
-
-    # Close wandb run
-    wandb.finish()
 
 if __name__ == "__main__":
     train()

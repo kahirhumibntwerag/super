@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import lightning as L
 import wandb
+import matplotlib.pyplot as plt
 
 class ResidualBlock(nn.Module):
     """
@@ -77,7 +78,8 @@ class LightningGenerator(L.LightningModule):
     def __init__(self, config):
         super(LightningGenerator, self).__init__()
         self.save_hyperparameters()
-        self.generator = Generator(**config)
+        self.generator = Generator(**config['generator'])
+        self.validation_step_outputs = []
     
     def forward(self, x):
         return self.generator(x)
@@ -94,51 +96,48 @@ class LightningGenerator(L.LightningModule):
         sr = self(lr)
         loss = F.mse_loss(sr, hr)
         self.log('val_loss', loss)
-        # Store predictions for epoch_end logging
-        if batch_idx == 0:  # Only store first batch to save memory
+        
+        # Store the first batch for visualization
+        if batch_idx == 0:
             self.validation_step_outputs = {'lr': lr, 'hr': hr, 'sr': sr}
-        return loss
-    
-    def test_step(self, batch, batch_idx):
-        lr, hr = batch
-        sr = self(lr)
-        loss = F.mse_loss(sr, hr)
-        self.log('test_loss', loss)
+        
         return loss
 
     def on_validation_epoch_end(self):
-        # Get the stored predictions
+        # Use the stored batch
+        if not self.validation_step_outputs:
+            return
+            
         lr = self.validation_step_outputs['lr']
         hr = self.validation_step_outputs['hr']
         sr = self.validation_step_outputs['sr']
         
-        # Log only first few images
-        num_images = min(4, lr.size(0))
+        num_images = min(3, len(lr))
         
         def tensor_to_image(tensor):
-            # Move to CPU, convert to numpy, ensure proper shape
-            img = tensor.cpu().float().clamp(0, 1).squeeze().numpy()
-            return img
+            img = tensor.cpu().float().squeeze().numpy()
+            
+            # Create matplotlib figure with colormap
+            plt.figure(figsize=(5,5))
+            plt.imshow(img, cmap='afmhot')
+            plt.axis('off')
+            
+            # Convert to wandb.Image
+            image = wandb.Image(plt)
+            plt.close()
+            
+            return image
         
         # Create and log images
         for i in range(num_images):
             self.logger.experiment.log({
-                f"validation/image_{i}/lr": wandb.Image(
-                    tensor_to_image(lr[i]), 
-                    caption="Low Resolution",
-                    cmap='afmhot'
-                ),
-                f"validation/image_{i}/hr": wandb.Image(
-                    tensor_to_image(hr[i]), 
-                    caption="High Resolution",
-                    cmap='afmhot'
-                ),
-                f"validation/image_{i}/sr": wandb.Image(
-                    tensor_to_image(sr[i]), 
-                    caption="Super Resolution",
-                    cmap='afmhot'
-                )
+                f"validation/image_{i}/lr": tensor_to_image(lr[i]),
+                f"validation/image_{i}/hr": tensor_to_image(hr[i]),
+                f"validation/image_{i}/sr": tensor_to_image(sr[i])
             })
+        
+        # Clear the outputs
+        self.validation_step_outputs.clear()
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.generator.lr)

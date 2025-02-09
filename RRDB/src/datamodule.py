@@ -33,8 +33,8 @@ class Dataset(Dataset):
 class DataModule(L.LightningDataModule):
     def __init__(
         self,
-        train_path: str,
-        val_path: str,
+        train_path: str = None,
+        val_path: str = None,
         test_path: str = None,
         batch_size: int = 32,
         num_workers: int = 4,

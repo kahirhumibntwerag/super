@@ -1,5 +1,5 @@
-project_name: "solar-super-resolution"
-run_name: "rrdb-baseline"
+logger:
+  project: 'your_project_name'
 
 trainer:
   max_epochs: 100
