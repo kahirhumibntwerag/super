@@ -130,7 +130,6 @@ import numpy as np
 ############################################################################
 ############################## Generator ###################################
 ############################################################################
-import torch.nn as nn
 class ResidualBlock(nn.Module):
     """
     Define a Residual Block without Batch Normalization
@@ -164,9 +163,9 @@ class Generator(nn.Module):
     """
     Define the Generator network for solar images with 1 channel
     """
-    def __init__(self, in_channels=1, initial_channel=64,num_rrdb_blocks=4, upscale_factor=8, lr=0.0001):
-        super().__init__()
-        
+    def __init__(self, in_channels=1, initial_channel=64, num_rrdb_blocks=4, upscale_factor=4, lr=1e-4, **kwargs):
+        super(Generator, self).__init__()
+
         self.lr = lr
 
         self.initial = nn.Sequential(
@@ -197,8 +196,6 @@ class Generator(nn.Module):
         post_rrdb = self.post_rrdb(rrdbs + initial)
         upsampled = self.upsampling(post_rrdb)
         return self.output(upsampled)
-
-
 #############################################################################
 ########################### Perceptual loss and other losses ################
 #############################################################################

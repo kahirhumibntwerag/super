@@ -1,0 +1,41 @@
+logger:
+  project: 'your_project_name'
+
+trainer:
+  max_epochs: 100
+  precision: 32
+  save_top_k: 3
+  monitor: "val_loss"
+
+generator:
+  in_channels: 1
+  initial_channel: 64
+  num_rrdb_blocks: 4
+  upscale_factor: 4
+  lr: 0.0001
+
+discriminator:
+  in_channels: 1
+  channel_list: [2, 4, 8, 16]
+  lr: 0.000001
+
+loss:
+  alpha: 0.001  # adversarial loss weight
+  beta: 1.0     # perceptual loss weight
+  gamma: 0.01   # L1 loss weight
+
+data:
+  train_path: "src/train_tensor.pt"
+  val_path: "src/val_tensor.pt"
+  test_path: "src/test_tensor.pt"
+  batch_size: 8
+  num_workers: 12
+
+callbacks:
+  checkpoint:
+    dirpath: "checkpoints/"
+    filename: "gan-{epoch:02d}-{val_loss:.2f}"
+    save_top_k: 3
+    monitor: "val_loss"
+    mode: "min"
+    save_last: True

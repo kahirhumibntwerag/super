@@ -61,7 +61,7 @@ class CombinedLoss(nn.Module):
     def __init__(self, discriminator, alpha=0.001, beta=1.0, gamma=0.01):
         super().__init__()
         self.mse_loss = nn.L1Loss()
-        self.adversarial_loss = nn.BCEWithLogitsLoss()
+        self.adversarial_loss = nn.BCELoss()
         self.perceptual_loss = PerceptualLoss()
         self.discriminator = discriminator
         self.alpha = alpha  # Weight for the adversarial loss
