@@ -24,11 +24,10 @@ data:
   batch_size: 32
   num_workers: 4
 
-
 callbacks:
   checkpoint:
     dirpath: "checkpoints/"
-    filename: "rrdb-{epoch:02d}-{val_loss:.2f}"
+    filename: "gan-{epoch:02d}-{val_loss:.2f}"
     save_top_k: 3
     monitor: "val_loss"
     mode: "min"

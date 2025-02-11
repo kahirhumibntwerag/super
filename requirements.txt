@@ -1,5 +1,5 @@
-torch==2.4.1
-torchvision==0.19.1
+torch
+torchvision
 Pillow  # PIL is included in Pillow
 matplotlib
 scipy
@@ -9,7 +9,7 @@ scikit-image
 opencv-python-headless
 s3fs
 dask[array]
-zarr
+zarr==2.18.3
 seaborn
 scikit-learn  # sklearn is part of scikit-learn
 sunpy

@@ -51,8 +51,6 @@ def normalize_laplacian_level(laplacian_level, kernel_size=3, C=1e-5):
 
     return normalized_laplacian.squeeze()
 
-
-
 def calculate_histogram(image, bins=256, range=(-1, 1)):
     """
     Calculate the histogram of an image.
@@ -75,7 +73,6 @@ def calculate_histogram(image, bins=256, range=(-1, 1)):
     hist = hist / torch.sum(hist)
 
     return hist
-
 
 def gaussian_pyramid(image, max_levels):
     """
@@ -146,27 +143,3 @@ def kld_loss(hr_image, sr_image, num_levels=3):
         kld_values.append(kldd)
 
     return kld_values[0].item()
-
-
-from brisque import BRISQUE
-def calculate_brisque_score(image, image2=None):
-    """
-    Calculate the BRISQUE score for an image.
-
-    :param image: Input image as a PyTorch tensor or NumPy array.
-    :return: BRISQUE score of the image.
-    """
-    # Ensure image is a PyTorch tensor
-    image_tensor = convert_to_tensor(image)
-    image_tensor = image_tensor.view(512, 512)
-
-    # Convert to a NumPy array and normalize the pixel values
-    image_numpy = image_tensor.unsqueeze(2).repeat(1, 1, 3).numpy()
-    image_numpy = (image_numpy - image_numpy.min()) / (image_numpy.max() - image_numpy.min()) * 255
-    image_numpy = image_numpy.astype(np.uint8)
-
-    # Calculate the BRISQUE score
-    obj = BRISQUE()
-    score = obj.score(image_numpy)
-
-    return score

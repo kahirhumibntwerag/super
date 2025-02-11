@@ -187,40 +187,5 @@ def kld_loss(hr_image, sr_image, num_levels=3):
     
     return total_kld.item()
 
-def power_transform(images, lambda_param=0.1):
-    """Fixed power transform function"""
-    eps = 1e-8
-    images = torch.clamp(images, min=eps)
-    
-    if lambda_param == 0:
-        transformed = torch.log(images)
-    else:
-        transformed = (images ** lambda_param - 1) / lambda_param
-    
-    # Fix: Handle normalization more carefully
-    transformed = transformed.clone()  # Create a copy to avoid in-place operations
-    min_val = transformed.min()
-    max_val = transformed.max()
-    
-    # Add small epsilon to avoid division by zero
-    denominator = (max_val - min_val)
-    if denominator == 0:
-        normalized = torch.zeros_like(transformed)
-    else:
-        normalized = (transformed - min_val) / denominator
-    
-    return normalized
-
-def load_model(config_path, checkpoint_path):
-    """Load model with safe loading option"""
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-    
-    model = LightningGenerator(config)
-    checkpoint = torch.load(checkpoint_path, weights_only=True)  # Add weights_only=True
-    model.load_state_dict(checkpoint['state_dict'])
-    model.eval()
-    
-    return model
 
 

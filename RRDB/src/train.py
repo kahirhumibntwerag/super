@@ -49,21 +49,16 @@ def train():
     with open('src/config.yml', 'r') as f:
         config = yaml.safe_load(f)
 
-    # Create checkpoint directory if it doesn't exist
-    os.makedirs(config['trainer']['checkpoint_dir'], exist_ok=True)
-
     # Initialize wandb logger
     wandb_logger = WandbLogger(
-        project=config['project_name'],
-        name=config['run_name'],
+        **config['logger'],
         config=config
     )
 
     # Define transforms with power transform instead of rescalee
     transform = transforms.Compose([
-        power_transform,  # Replace rescalee with power_transform
-        transforms.RandomHorizontalFlip(p=0.5)
-    ])
+        power_transform    
+        ])
 
     # Initialize DataModule and Model with transforms
     datamodule = DataModule(**config['data'], transform=transform)
