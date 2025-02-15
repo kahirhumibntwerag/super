@@ -3,7 +3,7 @@ import torch
 import yaml
 import os
 from unittest.mock import MagicMock, patch
-from src.train import train
+from super.RRDB.train import train
 
 @pytest.fixture
 def sample_config():

@@ -2,8 +2,8 @@ logger:
   project: 'your_project_name'
 
 trainer:
-  max_epochs: 100
-  precision: 32
+  max_epochs: 1000
+  precision: '16-mixed'
   gradient_clip_val: 1.0
   accumulate_grad_batches: 1
   checkpoint_dir: "checkpoints/"
@@ -13,16 +13,16 @@ trainer:
 generator:
   in_channels: 1
   initial_channel: 64
-  num_rrdb_blocks: 4
+  num_rrdb_blocks: 16
   upscale_factor: 4
-  lr: 1e-4
+  lr: 0.0001
 
 data:
-  train_path: "data/train_tensor.pt"
-  val_path: "data/val_tensor.pt"
-  test_path: "data/test_tensor.pt"
+  train_path: "data/train.pt"
+  val_path: "data/val.pt"
+  test_path: "data/test.pt"
   batch_size: 32
-  num_workers: 4
+  num_workers: 12
 
 callbacks:
   checkpoint:

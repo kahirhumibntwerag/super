@@ -14,25 +14,19 @@ from src.RRDB import LightningGAN
 from src.datamodule import DataModule
 
 def rescalee(images):
-    """
-    Apply log scaling to the images.
-    Args:
-        images: Input tensor
-    Returns:
-        Normalized tensor
-    """
     images_clipped = torch.clamp(images, min=1)
     images_log = torch.log(images_clipped)
     max_value = torch.log(torch.tensor(20000))
     max_value = torch.clamp(max_value, min=1e-9)
     images_normalized = images_log / max_value
     return images_normalized
+def inverse_rescalee(images_normalized):
+    max_value = torch.log(torch.tensor(20000.0))
+    max_value = torch.clamp(max_value, min=1e-9)
+    images_log = images_normalized * max_value
+    images_clipped = torch.exp(images_log)
 
-def rescale(images):
-    rescaled_images = images / 20000
-    rescaled_images = (rescaled_images*2) - 1
-    return rescaled_images
-
+    return images_clipped
 def train():
     # Load config
     with open('src/config.yml', 'r') as f:
@@ -44,10 +38,10 @@ def train():
         config=config
     )
 
-    # Define transforms with rescalee
+    # Define transforms
     transform = transforms.Compose([
-        rescalee    
-        ])
+        rescalee
+    ])
 
     # Initialize DataModule and Model with transforms
     datamodule = DataModule(**config['data'], transform=transform)

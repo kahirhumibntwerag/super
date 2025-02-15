@@ -61,12 +61,13 @@ class CombinedLoss(nn.Module):
     def __init__(self, discriminator, alpha=0.001, beta=1.0, gamma=0.01):
         super().__init__()
         self.mse_loss = nn.L1Loss()
-        self.adversarial_loss = nn.BCELoss()
+        self.adversarial_criterion = nn.BCEWithLogitsLoss()
         self.perceptual_loss = PerceptualLoss()
         self.discriminator = discriminator
         self.alpha = alpha  # Weight for the adversarial loss
         self.beta = beta    # Weight for the perceptual loss
         self.gamma = gamma
+
     def forward(self, high_res_fake, high_res_real):
         # MSE Loss
         mse_loss_value = self.mse_loss(high_res_fake, high_res_real)
@@ -74,11 +75,16 @@ class CombinedLoss(nn.Module):
         # Perceptual Loss
         perceptual_loss_value = self.perceptual_loss(high_res_fake, high_res_real)
 
-        # Adversarial Loss
+        # Adversarial Loss (using BCEWithLogitsLoss)
         predictions_fake = self.discriminator(high_res_fake)
         labels_real = torch.ones_like(predictions_fake, device=predictions_fake.device)
-        adversarial_loss_value = self.adversarial_loss(predictions_fake, labels_real)
+        adversarial_loss_value = self.adversarial_criterion(predictions_fake, labels_real)
 
         # Combined Loss
-        combined_loss_value = self.alpha * adversarial_loss_value + self.beta * perceptual_loss_value + self.gamma*mse_loss_value
+        combined_loss_value = (
+            self.alpha * adversarial_loss_value + 
+            self.beta * perceptual_loss_value + 
+            self.gamma * mse_loss_value
+        )
+        
         return combined_loss_value, mse_loss_value, adversarial_loss_value, perceptual_loss_value

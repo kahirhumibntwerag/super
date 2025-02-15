@@ -122,19 +122,30 @@ class LightningGAN(L.LightningModule):
         # Train Generator
         opt_g.zero_grad()
         
-        # Calculate generator losses
+        # Calculate generator losses using combined loss
         g_loss, mse_loss, adv_loss, percep_loss = self.combined_loss(fake_imgs, hr_imgs)
         
         self.manual_backward(g_loss)
         opt_g.step()
         
+        # Calculate accuracies (using sigmoid since we're using logits)
+        with torch.no_grad():
+            real_acc = (torch.sigmoid(real_preds) > 0.5).float().mean()
+            fake_acc = (torch.sigmoid(fake_preds) <= 0.5).float().mean()
+            d_acc = (real_acc + fake_acc) / 2
+        
         # Logging
         self.log_dict({
             'g_loss': g_loss,
             'd_loss': d_loss,
+            'd_acc': d_acc,
             'mse_loss': mse_loss,
             'adv_loss': adv_loss,
-            'percep_loss': percep_loss
+            'percep_loss': percep_loss,
+            'd_real_loss': d_real_loss,
+            'd_fake_loss': d_fake_loss,
+            'real_acc': real_acc,
+            'fake_acc': fake_acc
         }, prog_bar=True, sync_dist=True)
         
         # Visualize results periodically
@@ -150,6 +161,7 @@ class LightningGAN(L.LightningModule):
         
         # Logging
         self.log_dict({
+            'val_loss': g_loss,
             'val_g_loss': g_loss,
             'val_mse_loss': mse_loss,
             'val_adv_loss': adv_loss,
@@ -163,8 +175,8 @@ class LightningGAN(L.LightningModule):
     def _log_images(self, images, batch_idx, prefix='train'):
         """Helper method to log images to wandb"""
         fig, ax = plt.subplots()
-        # Assuming images need to be inverse scaled - adjust this based on your preprocessing
-        img_to_plot = self._inverse_transform(images[0]).cpu().numpy().squeeze()
+        # Detach the tensor before converting to numpy
+        img_to_plot = self._inverse_transform(images[0]).detach().cpu().numpy().squeeze()
         ax.imshow(img_to_plot, cmap='afmhot')
         ax.axis('off')
         

@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch, MagicMock
 import matplotlib.pyplot as plt
 from torchmetrics.functional import peak_signal_noise_ratio, structural_similarity_index_measure
 
-from src.inference import (
+from super.RRDB.inference import (
     power_transform,
     load_model,
     calculate_metrics,

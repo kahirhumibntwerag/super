@@ -112,14 +112,14 @@ def process_dataset(model, data_path, device='cuda', batch_size=4):
             
             # Add channel dimension and apply rescalee for model input
             lr_batch = lr_batch.unsqueeze(1)  # [B, 1, 128, 128]
-            lr_batch = rescalee(lr_batch)
+            lr_batch = lr_batch
             
             # Generate SR images
             with torch.no_grad():
                 sr_batch = model(lr_batch)
             
             # Inverse rescale SR images back to original range
-            sr_batch = inverse_rescalee(sr_batch)
+            sr_batch = sr_batch
             
             # Ensure values are in valid range
             sr_batch = torch.clamp(sr_batch, min=0.0)
